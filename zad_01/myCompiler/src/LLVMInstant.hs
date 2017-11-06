@@ -54,7 +54,32 @@ genLocal variable = do
 
 genProgram :: Program -> StateWriterMonad ()
 genProgram (Prog stmts) = do
+  genPrologue
   genStmts stmts
+  genEpilogue
+
+
+genPrologue :: StateWriterMonad ()
+genPrologue = do
+  tell [ "@dnl = internal constant [4 x i8] c\"%d\\0A\\00\""
+       , "declare i32 @printf(i8*, ...)"
+       , ""
+       , "define void @printInt(i32 %x) {"
+       , "    %t = getelementptr [4 x i8], [4 x i8]* @dnl, i32 0, i32 0"
+       , "    call i32 (i8*, ...) @printf(i8* %t, i32 %x)"
+       , "    ret void"
+       , "}"
+       , ""
+      --  , "declare void @printInt(i32)"
+       , ""
+       , "define i32 @main() {" ]
+
+
+genEpilogue :: StateWriterMonad ()
+genEpilogue = do
+  tell [ ""
+       , "    ret i32 0"
+       , "}" ]
 
 
 genStmts :: [Stmt] -> StateWriterMonad ()
@@ -75,7 +100,7 @@ genExp :: Exp -> StateWriterMonad Address
 genExp (ExpAdd exp1 exp2) = genBinOperation "add" exp1 exp2
 genExp (ExpSub exp1 exp2) = genBinOperation "sub" exp1 exp2
 genExp (ExpMul exp1 exp2) = genBinOperation "mul" exp1 exp2
-genExp (ExpDiv exp1 exp2) = genBinOperation "div" exp1 exp2
+genExp (ExpDiv exp1 exp2) = genBinOperation "sdiv" exp1 exp2
 genExp (ExpLit int) = do
   return $ Immediate int
 genExp (ExpVar (Ident var)) = do
@@ -96,23 +121,23 @@ genBinOperation op e1 e2 = do
 
 emitPrintInt :: Address -> StateWriterMonad ()
 emitPrintInt addr = do
-  tell ["call void @printInt(i32 " ++ show addr ++ ")"]
+  tell ["    call void @printInt(i32 " ++ show addr ++ ")"]
 
 emitLoad :: Variable -> Variable -> StateWriterMonad ()
 emitLoad var loc =
-  tell ["%" ++ var ++ " = load i32, i32* %" ++ loc]
+  tell ["    %" ++ var ++ " = load i32, i32* %" ++ loc]
 
 emitAssignment :: Address -> Variable -> StateWriterMonad ()
 emitAssignment addr loc = do
-  tell ["store i32 " ++ show addr ++ ", i32* %" ++ loc]
+  tell ["    store i32 " ++ show addr ++ ", i32* %" ++ loc]
 
 emitLocal :: Variable -> StateWriterMonad ()
 emitLocal var = do
-  tell ["%" ++ var ++ " = alloca i32"]
+  tell ["    %" ++ var ++ " = alloca i32"]
 
 emitBinOperation :: Variable -> Operation -> Address -> Address -> StateWriterMonad ()
 emitBinOperation var op a1 a2 = do
-  tell ["%" ++ var ++ " = " ++ op ++ " i32 " ++ show a1 ++ ", " ++ show a2]
+  tell ["    %" ++ var ++ " = " ++ op ++ " i32 " ++ show a1 ++ ", " ++ show a2]
 
 
 compile :: Program -> [String]

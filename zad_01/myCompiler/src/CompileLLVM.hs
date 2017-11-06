@@ -4,7 +4,8 @@ import Data.List ( isSuffixOf )
 import System.IO -- ( stdin, hGetContents, openFile )
 import System.Environment ( getArgs, getProgName )
 import System.Exit ( exitFailure, exitSuccess )
-import Control.Monad (when)
+import System.Process
+import Control.Monad ( when )
 
 import LexInstant
 import ParInstant
@@ -17,27 +18,42 @@ import ErrM
 runFile :: FilePath -> IO ()
 runFile f = do 
   s <- readFile f
-  h <- getOutputFile f
-  runCompiler h s
+  let path = getTestOutputPath f
+  runCompiler path s
+  runLLVM path
 
 
-getOutputFile :: FilePath -> IO Handle
-getOutputFile f = if ".ins" `isSuffixOf` f 
-    then do
-      let n = length f
-      let nf = (take (n - 4) f) ++ ".ll"
-      openFile nf WriteMode
-    else
-      return stdout
+runLLVM :: FilePath -> IO ()
+runLLVM path = do
+  let binPath = getBinaryOutputPath path
+  callCommand $ "llvm-as -o " ++ binPath ++ " " ++ path
 
 
-runCompiler :: Handle -> String -> IO ()
-runCompiler h s = let ts = myLexer s in case pProgram ts of
+getTestOutputPath :: FilePath -> FilePath
+getTestOutputPath f = if ".ins" `isSuffixOf` f 
+    then
+      let n = length f in
+      (take (n - 4) f) ++ ".ll"
+    else "out.ll"
+
+
+getBinaryOutputPath :: FilePath -> FilePath
+getBinaryOutputPath f = 
+  let n = length f in
+    (take (n - 3) f) ++ ".bc"
+
+
+printUsage :: IO ()
+printUsage = do
+  putStrLn "One file at a time please"
+
+
+runCompiler :: FilePath -> String -> IO ()
+runCompiler path s = let ts = myLexer s in case pProgram ts of
   Ok tree -> do 
-    let res = compile tree in            
-      mapM_ (hPutStrLn h) res
+    h <- openFile path WriteMode    
+    mapM_ (hPutStrLn h) (compile tree)
     hClose h
-    exitSuccess
   _ -> do
     putStrLn "\nParse failure"
     exitFailure
@@ -47,5 +63,5 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    [] -> getContents >>= runCompiler stdout
-    fs -> mapM_ runFile fs
+    [fs] -> runFile fs
+    _ -> printUsage
