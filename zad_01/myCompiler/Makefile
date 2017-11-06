@@ -1,21 +1,15 @@
+SOURCE = ./src
+ALL = insc_llvm
 
-all:	ParInstant.hs
-	alex -g LexInstant.x
-	ghc --make TestInstant.hs -o TestInstant
+all: $(ALL)
 
-debug: info.txt
+$(ALL): 
+	make -C $(SOURCE)
+	cd $(SOURCE) && cabal build && cd ..
+	make -C $(SOURCE) distclean
+	cp $(SOURCE)/dist/build/$@/$@ $@
+	rm -rf $(SOURCE)/dist
 
-ParInstant.y LexInstant.x: Instant.cf
-	bnfc $<
-
-ParInstant.hs: ParInstant.y
-	happy -gca $<
-
-info.txt: ParInstant.y
-	happy -gca ParInstant.y
 clean:
-	-rm -f *.log *.aux *.hi *.o *.dvi
-	-rm -f DocInstant.ps
-distclean: clean
-	-rm -f DocInstant.* LexInstant.* ParInstant.* LayoutInstant.* SkelInstant.* PrintInstant.* TestInstant.* AbsInstant.* TestInstant ErrM.* SharedString.* Instant.dtd XMLInstant.* info.txt
-
+	make -C $(SOURCE) distclean
+	rm $(ALL)

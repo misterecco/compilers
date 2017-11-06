@@ -57,9 +57,9 @@ wykonywalne o nazwie `insc_jvm`  oraz `insc_llvm`
 Wykorzystywany jasmin.jar należy umieścić w katalogu lib
 Ewentualne metody biblioteczne (`printInt` etc.) należy umieścić w klasie `Runtime.class` w katalogu lib
 
-    Wykonanie `insc_llvm foo/bar/baz.ins` dla poprawnego programu
-    wejściowego `baz.ins` ma stworzyć pliki `baz.ll` (tekstowy kod LLVM) oraz
-    `baz.bc` (bitkod LLVM wykonywalny przy uzyciu `lli`) w katalogu `foo/bar`
+Wykonanie `insc_llvm foo/bar/baz.ins` dla poprawnego programu
+wejściowego `baz.ins` ma stworzyć pliki `baz.ll` (tekstowy kod LLVM) oraz
+`baz.bc` (bitkod LLVM wykonywalny przy uzyciu `lli`) w katalogu `foo/bar`
 
 Punktacja:
 ---------

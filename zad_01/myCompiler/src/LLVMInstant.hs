@@ -46,26 +46,15 @@ addLocal variable = do
       return loc
 
 
-getLocal :: String -> StateWriterMonad Variable
-getLocal variable = do
+genLocal :: String -> StateWriterMonad Variable
+genLocal variable = do
   PS _ lcls <- get
   return $ lcls ! variable
 
 
 genProgram :: Program -> StateWriterMonad ()
-genProgram (Prog stmts) = do 
-  genPrologue
+genProgram (Prog stmts) = do
   genStmts stmts
-
-
-genPrologue :: StateWriterMonad ()
-genPrologue = do
-  tell [ "@dnl = internal constant [4 x i8] c\"%d\\0A\\00\""
-       , "define void @printInt(i32 %x) {"
-       , "    %t = getelementptr [4 x i8], [4 x i8]* @dnl, i32 0, i32 0"
-       , "    call i32 (i8*, ...) @printf(i8* %t, i32 %x)"
-       , "    ret void"
-       , "}"]
 
 
 genStmts :: [Stmt] -> StateWriterMonad ()
@@ -77,11 +66,9 @@ genStmt (SAss (Ident var) exp) = do
   loc <- addLocal var
   addr <- genExp exp
   emitAssignment addr loc
-  return ()
 genStmt (SExp exp) = do
   t <- genExp exp
-  -- TODO: emit print expression value
-  return ()
+  emitPrintInt t
 
 
 genExp :: Exp -> StateWriterMonad Address
@@ -92,7 +79,7 @@ genExp (ExpDiv exp1 exp2) = genBinOperation "div" exp1 exp2
 genExp (ExpLit int) = do
   return $ Immediate int
 genExp (ExpVar (Ident var)) = do
-  a <- getLocal var
+  a <- genLocal var
   t <- freshTemp
   emitLoad t a
   return $ Indirect t
@@ -108,8 +95,8 @@ genBinOperation op e1 e2 = do
 
 
 emitPrintInt :: Address -> StateWriterMonad ()
-emitPrintInt (Immediate int) = do
-  tell ["TODO"]
+emitPrintInt addr = do
+  tell ["call void @printInt(i32 " ++ show addr ++ ")"]
 
 emitLoad :: Variable -> Variable -> StateWriterMonad ()
 emitLoad var loc =
