@@ -195,10 +195,14 @@ emitInvokePrintLn = do tell ["  invokevirtual java/io/PrintStream/println(I)V"]
 
 emitConst :: Integer -> StateWriterMonad ()
 emitConst int = do
-  if int == -1
-    then tell ["  iconst_m1"]
-  else if int >=0 && int < 6
-    then tell ["  iconst_" ++ show int]
+  if int == -1 then 
+    tell ["  iconst_m1"]
+  else if int >=0 && int <= 5 then 
+    tell ["  iconst_" ++ show int]
+  else if int > 5 && int <= 127 then
+    tell ["  bipush " ++ show int]
+  else if int > 127 && int <= 32767 then
+    tell ["  sipush " ++ show int]
   else do tell ["  ldc " ++ show int]
 
 

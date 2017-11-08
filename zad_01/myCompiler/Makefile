@@ -8,11 +8,11 @@ $(ALL):
 
 common:
 	make -C $(SOURCE)
-	cd $(SOURCE) && cabal build && cd ..
+	cd $(SOURCE) && cabal configure && cabal build && cd ..
 
 clean:
 	make -C $(SOURCE) distclean
 	rm -rf $(SOURCE)/dist
 
-mrproper:
+mrproper: clean
 	rm $(ALL)
