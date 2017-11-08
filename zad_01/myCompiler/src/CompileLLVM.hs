@@ -30,11 +30,11 @@ runLLVM path = do
 
 
 getTestOutputPath :: FilePath -> FilePath
-getTestOutputPath f = if ".ins" `isSuffixOf` f 
-    then
-      let n = length f in
-      (take (n - 4) f) ++ ".ll"
-    else "out.ll"
+getTestOutputPath f = 
+  if ".ins" `isSuffixOf` f then
+    let n = length f in
+    (take (n - 4) f) ++ ".ll"
+  else "out.ll"
 
 
 getBinaryOutputPath :: FilePath -> FilePath
@@ -45,7 +45,9 @@ getBinaryOutputPath f =
 
 printUsage :: IO ()
 printUsage = do
-  putStrLn "One file at a time please"
+  mapM_ putStrLn [ "insc_jvm <path_to_input_file>"
+                 , "   note: input file should be located in a subdirectory"
+                 , "   and have an extension .ins" ]
 
 
 runCompiler :: FilePath -> String -> IO ()

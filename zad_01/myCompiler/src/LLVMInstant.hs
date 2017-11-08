@@ -22,6 +22,7 @@ data ProgramState = PS {
 
 type StateWriterMonad = StateT ProgramState (Writer [String])
 
+
 initialState :: ProgramState
 initialState = PS 0 empty
 
@@ -37,12 +38,13 @@ addLocal :: String -> StateWriterMonad Variable
 addLocal variable = do
   PS nt lcls <- get
   if member variable lcls then do 
-    return $ lcls ! variable else do
-      let loc = "loc_" ++ variable
-      emitLocal loc
-      let newLcls = insert variable loc lcls 
-      put (PS nt newLcls)
-      return loc
+    return $ lcls ! variable 
+  else do
+    let loc = "loc_" ++ variable
+    emitLocal loc
+    let newLcls = insert variable loc lcls 
+    put (PS nt newLcls)
+    return loc
 
 
 getLocal :: String -> StateWriterMonad Variable

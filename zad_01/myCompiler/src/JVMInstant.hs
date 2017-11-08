@@ -16,6 +16,7 @@ data ProgramState = PS {
 
 type StateWriterMonad = StateT ProgramState (Writer [String])
 
+
 initialState :: ProgramState
 initialState = PS empty
 
@@ -123,16 +124,15 @@ genStmt (SAss (Ident var) exp) = do
   genExp exp
   emitAssignment loc
 genStmt (SExp exp) =
-  if stH == 1 
-    then do
-      emitGetStaticPrintStream
-      genExp exp
-      emitInvokePrintLn
-    else do
-      genExp exp
-      emitPrintIntSwap
-    where 
-      stH = stHgtExp exp
+  if stH == 1 then do
+    emitGetStaticPrintStream
+    genExp exp
+    emitInvokePrintLn
+  else do
+    genExp exp
+    emitPrintIntSwap
+  where 
+    stH = stHgtExp exp
 
 
 genExp :: Exp -> StateWriterMonad ()
@@ -208,15 +208,15 @@ emitConst int = do
 
 emitLoad :: Local -> StateWriterMonad ()
 emitLoad loc = do
-  if loc < 4 
-    then tell ["  iload_" ++ show loc]
+  if loc < 4 then 
+    tell ["  iload_" ++ show loc]
   else tell ["  iload " ++ show loc]
 
 
 emitAssignment :: Local -> StateWriterMonad ()
 emitAssignment loc = do
-  if loc < 4 
-    then tell ["  istore_" ++ show loc]
+  if loc < 4 then 
+    tell ["  istore_" ++ show loc]
   else   tell ["  istore " ++ show loc]
 
 
