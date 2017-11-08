@@ -9,7 +9,7 @@ import Control.Monad ( when )
 
 import LexInstant
 import ParInstant
-import LLVMInstant
+import JVMInstant
 import AbsInstant
 
 import ErrM
@@ -20,27 +20,33 @@ runFile f = do
   s <- readFile f
   let path = getTestOutputPath f
   runCompiler path s
-  runLLVM path
+  runJVM path
 
 
-runLLVM :: FilePath -> IO ()
-runLLVM path = do
-  let binPath = getBinaryOutputPath path
-  callCommand $ "llvm-as -o " ++ binPath ++ " " ++ path
+runJVM :: FilePath -> IO ()
+runJVM path = do
+  let dir = getDirOutputPath path
+  callCommand $ "java -jar lib/jasmin.jar -d " ++ dir ++ " " ++ path
 
 
 getTestOutputPath :: FilePath -> FilePath
-getTestOutputPath f = if ".ins" `isSuffixOf` f 
+getTestOutputPath f = 
+  if ".ins" `isSuffixOf` f 
     then
       let n = length f in
-      (take (n - 4) f) ++ ".ll"
-    else "out.ll"
+      (take (n - 4) f) ++ ".j"
+    else "out.j"
 
 
-getBinaryOutputPath :: FilePath -> FilePath
-getBinaryOutputPath f = 
-  let n = length f in
-    (take (n - 3) f) ++ ".bc"
+getDirOutputPath :: FilePath -> FilePath
+getDirOutputPath f = reverse $ dropWhile (/= '/') $ reverse f
+
+
+getClassName :: FilePath -> String
+getClassName f = reverse $ takeWhile (/= '/') $ reverse ff
+  where
+    n = length f
+    ff = take (n - 2) f
 
 
 printUsage :: IO ()
@@ -51,8 +57,9 @@ printUsage = do
 runCompiler :: FilePath -> String -> IO ()
 runCompiler path s = let ts = myLexer s in case pProgram ts of
   Ok tree -> do 
-    h <- openFile path WriteMode    
-    mapM_ (hPutStrLn h) (compile tree)
+    h <- openFile path WriteMode
+    let c = getClassName path
+    mapM_ (hPutStrLn h) (compile c tree)
     hClose h
   _ -> do
     putStrLn "\nParse failure"

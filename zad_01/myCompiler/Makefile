@@ -1,15 +1,18 @@
 SOURCE = ./src
-ALL = insc_llvm
+ALL = insc_jvm insc_llvm
 
-all: $(ALL)
+all: common $(ALL) clean
 
 $(ALL): 
+	cp $(SOURCE)/dist/build/$@/$@ $@
+
+common:
 	make -C $(SOURCE)
 	cd $(SOURCE) && cabal build && cd ..
-	make -C $(SOURCE) distclean
-	cp $(SOURCE)/dist/build/$@/$@ $@
-	rm -rf $(SOURCE)/dist
 
 clean:
 	make -C $(SOURCE) distclean
+	rm -rf $(SOURCE)/dist
+
+mrproper:
 	rm $(ALL)

@@ -38,16 +38,15 @@ addLocal variable = do
   PS nt lcls <- get
   if member variable lcls then do 
     return $ lcls ! variable else do
-      let loc= "loc_" ++ variable
+      let loc = "loc_" ++ variable
       emitLocal loc
-      return loc
       let newLcls = insert variable loc lcls 
       put (PS nt newLcls)
       return loc
 
 
-genLocal :: String -> StateWriterMonad Variable
-genLocal variable = do
+getLocal :: String -> StateWriterMonad Variable
+getLocal variable = do
   PS _ lcls <- get
   return $ lcls ! variable
 
@@ -69,8 +68,6 @@ genPrologue = do
        , "    call i32 (i8*, ...) @printf(i8* %t, i32 %x)"
        , "    ret void"
        , "}"
-       , ""
-      --  , "declare void @printInt(i32)"
        , ""
        , "define i32 @main() {" ]
 
@@ -104,7 +101,7 @@ genExp (ExpDiv exp1 exp2) = genBinOperation "sdiv" exp1 exp2
 genExp (ExpLit int) = do
   return $ Immediate int
 genExp (ExpVar (Ident var)) = do
-  a <- genLocal var
+  a <- getLocal var
   t <- freshTemp
   emitLoad t a
   return $ Indirect t
@@ -123,17 +120,21 @@ emitPrintInt :: Address -> StateWriterMonad ()
 emitPrintInt addr = do
   tell ["    call void @printInt(i32 " ++ show addr ++ ")"]
 
+
 emitLoad :: Variable -> Variable -> StateWriterMonad ()
 emitLoad var loc =
   tell ["    %" ++ var ++ " = load i32, i32* %" ++ loc]
+
 
 emitAssignment :: Address -> Variable -> StateWriterMonad ()
 emitAssignment addr loc = do
   tell ["    store i32 " ++ show addr ++ ", i32* %" ++ loc]
 
+
 emitLocal :: Variable -> StateWriterMonad ()
 emitLocal var = do
   tell ["    %" ++ var ++ " = alloca i32"]
+
 
 emitBinOperation :: Variable -> Operation -> Address -> Address -> StateWriterMonad ()
 emitBinOperation var op a1 a2 = do
