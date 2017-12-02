@@ -1,6 +1,6 @@
 all:
 	happy -gca ParLatte.y
-	alex -dg LexLatte.x
+	alex -g LexLatte.x
 	ghc --make TestLatte.hs -o TestLatte
 
 clean:
