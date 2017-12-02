@@ -1,0 +1,11 @@
+Name: Latte
+Version: 0.1.0
+Author:		Tomasz Kępa
+Build-Type:	Simple
+Cabal-Version:  >=1.10
+
+executable latc_x86_64
+  build-depends:      base >= 4, mtl, array, containers, process >= 1.2.0.0
+  other-modules:      AbsLatte, ErrM, LexLatte, AsmLatte, ParLatte  
+  default-language:   Haskell2010  
+  main-is:            Compiler.hs
