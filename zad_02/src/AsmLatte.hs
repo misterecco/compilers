@@ -1,4 +1,4 @@
-module SkelLatte where
+module AsmLatte where
 
 import AbsLatte
 import ErrM

@@ -1,65 +1,83 @@
 module Main where
-  import System.IO ( stdin, hGetContents )
-  import System.Environment ( getArgs, getProgName )
-  import System.Exit ( exitFailure, exitSuccess )
-  import Control.Monad (when)
   
-  import LexLatte
-  import ParLatte
-  import SkelLatte
-  import PrintLatte
-  import AbsLatte
-  
-  import ErrM
-  
-  type ParseFun a = [Token] -> Err a
-  
-  myLLexer = myLexer
-  
-  type Verbosity = Int
-  
-  putStrV :: Verbosity -> String -> IO ()
-  putStrV v s = when (v > 1) $ putStrLn s
-  
-  runFile :: (Print a, Show a) => Verbosity -> ParseFun a -> FilePath -> IO ()
-  runFile v p f = putStrLn f >> readFile f >>= run v p
-  
-  run :: (Print a, Show a) => Verbosity -> ParseFun a -> String -> IO ()
-  run v p s = let ts = myLLexer s in case p ts of
-             Bad s    -> do putStrLn "\nParse              Failed...\n"
-                            putStrV v "Tokens:"
-                            putStrV v $ show ts
-                            putStrLn s
-                            exitFailure
-             Ok  tree -> do putStrLn "\nParse Successful!"
-                            showTree v tree
-  
-                            exitSuccess
-  
-  
-  showTree :: (Show a, Print a) => Int -> a -> IO ()
-  showTree v tree
-   = do
-        putStrV v $ "\n[Abstract Syntax]\n\n" ++ show tree
-        putStrV v $ "\n[Linearized tree]\n\n" ++ printTree tree
-  
-  usage :: IO ()
-  usage = do
-    putStrLn $ unlines
-      [ "usage: Call with one of the following argument combinations:"
-      , "  --help          Display this help message."
-      , "  (no arguments)  Parse stdin verbosely."
-      , "  (files)         Parse content of files verbosely."
-      , "  -s (files)      Silent mode. Parse content of files silently."
-      ]
+import Data.List ( isSuffixOf )
+import System.IO
+import System.Environment ( getArgs, getProgName )
+import System.Exit ( exitFailure, exitSuccess )
+import System.Process
+import Control.Monad ( when )
+
+import LexLatte
+import ParLatte
+import AsmLatte
+import AbsLatte
+import PrintLatte
+import Preprocessor
+
+import ErrM
+
+
+showTree :: (Show a, Print a) => a -> IO ()
+showTree tree
+ = do
+      hPutStrLn stderr $ "\n[Abstract Syntax]\n\n" ++ show tree
+      hPutStrLn stderr $ "\n[Linearized tree]\n\n" ++ printTree tree
+
+
+runFile :: FilePath -> IO ()
+runFile f = do 
+  s <- readFile f
+  let path = getTestOutputPath f
+  runCompiler path s
+  runLLVM path
+
+
+runLLVM :: FilePath -> IO ()
+runLLVM path = do
+  let binPath = getBinaryOutputPath path
+  callCommand $ "gas -o " ++ binPath ++ " " ++ path
+
+
+getTestOutputPath :: FilePath -> FilePath
+getTestOutputPath f = 
+  if ".ins" `isSuffixOf` f then
+    let n = length f in
+    take (n - 4) f ++ ".s"
+  else "out.s"
+
+
+getBinaryOutputPath :: FilePath -> FilePath
+getBinaryOutputPath f = 
+  let n = length f in
+    take (n - 3) f ++ ".bc"
+
+
+printUsage :: IO ()
+printUsage =
+  mapM_ putStrLn [ "latc_x86_64 <path_to_input_file>"
+                  , "   note: input file should be located in a subdirectory"
+                  , "   and have an extension .lat" ]
+
+
+runCompiler :: FilePath -> String -> IO ()
+runCompiler path s = let ts = myLexer s in case pProgram ts of
+  Ok tree -> do 
+    hPutStrLn stderr "OK"
+    let nt = analyzeProgram tree
+    showTree tree
+    -- h <- openFile path WriteMode    
+    -- mapM_ (hPutStrLn h) (compile tree)
+    -- hClose h
+  Bad s -> do
+    hPutStrLn stderr "ERROR"
+    hPutStrLn stderr s
     exitFailure
-  
-  main :: IO ()
-  main = do
-    args <- getArgs
-    case args of
-      ["--help"] -> usage
-      [] -> getContents >>= run 2 pProgram
-      "-s":fs -> mapM_ (runFile 0 pProgram) fs
-      fs -> mapM_ (runFile 2 pProgram) fs
-  
+
+
+main :: IO ()
+main = do
+  args <- getArgs
+  case args of
+    ["--help"] -> printUsage    
+    [fs] -> runFile fs
+    _ -> printUsage
