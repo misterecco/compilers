@@ -33,18 +33,18 @@ getTestOutputPath :: FilePath -> FilePath
 getTestOutputPath f = 
   if ".ins" `isSuffixOf` f then
     let n = length f in
-    (take (n - 4) f) ++ ".ll"
+    take (n - 4) f ++ ".ll"
   else "out.ll"
 
 
 getBinaryOutputPath :: FilePath -> FilePath
 getBinaryOutputPath f = 
   let n = length f in
-    (take (n - 3) f) ++ ".bc"
+    take (n - 3) f ++ ".bc"
 
 
 printUsage :: IO ()
-printUsage = do
+printUsage =
   mapM_ putStrLn [ "insc_jvm <path_to_input_file>"
                  , "   note: input file should be located in a subdirectory"
                  , "   and have an extension .ins" ]

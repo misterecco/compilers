@@ -33,7 +33,7 @@ getTestOutputPath :: FilePath -> FilePath
 getTestOutputPath f = 
   if ".ins" `isSuffixOf` f then
     let n = length f in
-      (take (n - 4) f) ++ ".j"
+      take (n - 4) f ++ ".j"
   else "out.j"
 
 
@@ -49,7 +49,7 @@ getClassName f = reverse $ takeWhile (/= '/') $ reverse ff
 
 
 printUsage :: IO ()
-printUsage = do
+printUsage =
   mapM_ putStrLn [ "insc_jvm <path_to_input_file>"
                  , "   note: input file should be located in a subdirectory"
                  , "   and have an extension .ins" ]
