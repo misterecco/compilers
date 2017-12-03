@@ -29,18 +29,18 @@ runFile f = do
   s <- readFile f
   let path = getTestOutputPath f
   runCompiler path s
-  runLLVM path
+  -- runASM path
 
 
-runLLVM :: FilePath -> IO ()
-runLLVM path = do
+runASM :: FilePath -> IO ()
+runASM path = do
   let binPath = getBinaryOutputPath path
   callCommand $ "gas -o " ++ binPath ++ " " ++ path
 
 
 getTestOutputPath :: FilePath -> FilePath
 getTestOutputPath f = 
-  if ".ins" `isSuffixOf` f then
+  if ".lat" `isSuffixOf` f then
     let n = length f in
     take (n - 4) f ++ ".s"
   else "out.s"
@@ -49,7 +49,7 @@ getTestOutputPath f =
 getBinaryOutputPath :: FilePath -> FilePath
 getBinaryOutputPath f = 
   let n = length f in
-    take (n - 3) f ++ ".bc"
+    take (n - 3) f
 
 
 printUsage :: IO ()
@@ -62,15 +62,20 @@ printUsage =
 runCompiler :: FilePath -> String -> IO ()
 runCompiler path s = let ts = myLexer s in case pProgram ts of
   Ok tree -> do 
-    hPutStrLn stderr "OK"
-    let nt = analyzeProgram tree
-    showTree tree
+    let nt = preprocess tree
+    case nt of
+      Left e -> do
+        hPutStrLn stderr "ERROR"    
+        hPutStrLn stderr e
+      Right tr -> do 
+        hPutStrLn stderr "OK"
+        showTree tr 
     -- h <- openFile path WriteMode    
     -- mapM_ (hPutStrLn h) (compile tree)
     -- hClose h
-  Bad s -> do
+  Bad e -> do
     hPutStrLn stderr "ERROR"
-    hPutStrLn stderr s
+    hPutStrLn stderr e
     exitFailure
 
 

@@ -16,7 +16,7 @@ Błędy:
     - zły zwracany typ
     - złe typy parametrów funkcji/operatorów
     - zła liczba argumentów
-  - 
+  - kolizje zmienna i funkcja
 
 Warningi:
   - więcej niż jeden return // tu raczej nie da się sprawdzić wszystkich przypadków
