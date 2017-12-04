@@ -7,6 +7,7 @@ import Data.Map hiding (map)
 import Data.List hiding (insert)
 import Control.Monad.Except
 import Control.Monad.State
+import Control.Monad.Reader
 
 
 type Position = Maybe (Int, Int)
@@ -19,38 +20,48 @@ data FunctionDef = FD {
     position :: Position
 }
 instance Eq FunctionDef where
-    (FD lhrt lhargs _) == (FD rhrt rhargs _) = lhrt == rhrt && lhargs == rhargs
+    lhs == rhs = 
+        returnType lhs == returnType rhs
+        && argumentTypes rhs == argumentTypes lhs
 
-data ProgramState = PS {
-    functions :: Map Ident FunctionDef,
-    variables :: Map Ident (Type Position)
+data FuncEnv = FE {
+    functions :: Map Ident FunctionDef
 }
 
-type ExceptStateMonad = ExceptT String (State ProgramState)
+data Env = VE {
+    variables :: Map Ident (Type Position),
+    funRetType :: Type Position
+}
+
+type PreprocessorMonad = ExceptT String (ReaderT Env (State FuncEnv))
 
 
-initialState :: ProgramState
-initialState = PS empty empty
+emptyEnv :: Env
+emptyEnv = VE empty (Void Nothing)
 
-hasFunction :: Ident -> ExceptStateMonad Bool
+
+emptyFuncEnv :: FuncEnv
+emptyFuncEnv = FE empty
+
+hasFunction :: Ident -> PreprocessorMonad Bool
 hasFunction ident = do
-    PS funcs _ <- get
+    FE funcs <- get
     return $ member ident funcs
 
-getFunction :: Ident -> Position -> ExceptStateMonad FunctionDef
+getFunction :: Ident -> Position -> PreprocessorMonad FunctionDef
 getFunction ident pos = do
-    PS funcs _ <- get
+    FE funcs <- get
     verifyFunctionIsDefined ident pos
     return $ funcs ! ident
     
-verifyFunctionIsDefined :: Ident -> Position -> ExceptStateMonad ()
+verifyFunctionIsDefined :: Ident -> Position -> PreprocessorMonad ()
 verifyFunctionIsDefined ident pos = do
     isDefined <- hasFunction ident
     unless isDefined $ 
         throwError $ errorWithPosition pos ++ 
         "trying to call undefined function " ++ showIdent ident
 
-verifyFunctionIsNotDefined :: Ident -> Position -> ExceptStateMonad ()
+verifyFunctionIsNotDefined :: Ident -> Position -> PreprocessorMonad ()
 verifyFunctionIsNotDefined ident pos = do
     isDefined <- hasFunction ident
     when isDefined $ do
@@ -58,7 +69,7 @@ verifyFunctionIsNotDefined ident pos = do
         throwError $ errorWithPosition pos ++ "function " ++ showIdent ident
                      ++ " already defined at " ++ showPosition prevPos
 
-verifyUniqueArguments :: [Arg Position] -> Ident -> Position -> ExceptStateMonad ()
+verifyUniqueArguments :: [Arg Position] -> Ident -> Position -> PreprocessorMonad ()
 verifyUniqueArguments args funIdent pos = do
     let idents = extractArgumentIdents args
     let uniqueIdents = nub idents
@@ -66,14 +77,14 @@ verifyUniqueArguments args funIdent pos = do
         throwError $ errorWithPosition pos ++ "duplicated argument in function "
         ++ showIdent funIdent
 
-addFunction :: TopDef Position -> ExceptStateMonad ()
+addFunction :: TopDef Position -> PreprocessorMonad ()
 addFunction (FnDef pos fnType ident args _) = do
-    PS funcs vars <- get
+    FE funcs <- get
     verifyFunctionIsNotDefined ident pos
     verifyUniqueArguments args ident pos
     let stype = extractType fnType
     let sargs = extractArgumentTypes args
-    put $ PS (insert ident (FD stype sargs pos) funcs) vars
+    put $ FE (insert ident (FD stype sargs pos) funcs)
     return ()
 
 extractType :: Type Position -> Type Position
@@ -96,15 +107,15 @@ extractArgumentIdents :: [Arg Position] -> [Ident]
 extractArgumentIdents = map extractArgumentIdent
 
 
-analyzeProgram :: Program Position -> ExceptStateMonad (Program Position)
+analyzeProgram :: Program Position -> PreprocessorMonad (Program Position)
 analyzeProgram (Program pos topDefs) = do
     tr <- collectFunctions topDefs
     return $ Program pos tr
 
-collectFunctions :: [TopDef Position] -> ExceptStateMonad [TopDef Position]
+collectFunctions :: [TopDef Position] -> PreprocessorMonad [TopDef Position]
 collectFunctions = mapM collectFunction
 
-collectFunction :: TopDef Position -> ExceptStateMonad (TopDef Position)
+collectFunction :: TopDef Position -> PreprocessorMonad (TopDef Position)
 collectFunction def = do
     addFunction def
     return def
@@ -125,4 +136,4 @@ showIdent ident = "`" ++ printTree ident ++ "`"
 
 
 preprocess :: Program Position -> AnalysisResult
-preprocess p = evalState (runExceptT (analyzeProgram p)) initialState
+preprocess p = evalState (runReaderT (runExceptT (analyzeProgram p)) emptyEnv) emptyFuncEnv
