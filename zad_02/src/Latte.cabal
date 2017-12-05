@@ -12,6 +12,7 @@ executable latc_x86_64
     LexLatte, 
     AsmLatte, 
     ParLatte, 
+    PreState,
     PrintLatte,
     Preprocessor
   default-language:   Haskell2010  

@@ -1,0 +1,195 @@
+module PreState where
+
+import AbsLatte
+import PrintLatte
+
+import Data.Map hiding (map)
+import Data.List hiding (insert)
+import Control.Monad.Except
+import Control.Monad.State
+
+
+type Position = Maybe (Int, Int)
+
+data FunctionDef = FD {
+    returnType :: Type Position,
+    argumentTypes :: [Type Position],
+    position :: Position
+}
+-- instance Eq FunctionDef where
+--     lhs == rhs = 
+--         returnType lhs == returnType rhs
+--         && argumentTypes rhs == argumentTypes lhs
+
+data VariableDef = VD {
+    varType :: Type Position,
+    varBlock :: Integer,
+    varPos :: Position
+}
+-- instance Eq VariableDef where
+--     lhs == rhs = varType lhs == varType lhs
+
+data Env = E {
+    functions :: Map Ident FunctionDef,
+    variables :: Map Ident VariableDef,
+    funRetType :: Type Position,
+    blockLevel :: Integer
+}
+
+type PreprocessorMonad = ExceptT String (State Env)
+
+emptyEnv :: Env
+emptyEnv = E empty empty (Void Nothing) 0
+
+local :: MonadState s m => (s -> m s) -> m a -> m a
+local modState comp = do
+    initialState <- get
+    localState <- modState initialState
+    put localState
+    result <- comp
+    put initialState
+    return result
+
+
+hasVariable :: Ident -> PreprocessorMonad Bool
+hasVariable ident = do
+    E _ vars _ _ <- get
+    return $ member ident vars
+
+getVariable :: Ident -> Position -> PreprocessorMonad VariableDef
+getVariable ident pos = do
+    E _ vars _ _ <- get
+    verifyVariableIsDefined ident pos
+    return $ vars ! ident
+
+addVariable :: Type Position -> Ident -> PreprocessorMonad ()
+addVariable vt ident = do
+    (E funcs vars ret bl) <- get
+    let t = extractType vt
+    let pos = extractPosition vt
+    verifyVariableIsNotDefined ident pos
+    put $ E funcs (insert ident (VD t bl pos) vars) ret bl
+
+verifyVariableIsDefined :: Ident -> Position -> PreprocessorMonad ()
+verifyVariableIsDefined ident pos = do
+    isDefined <- hasVariable ident
+    unless isDefined $ 
+        throwError $ errorWithPosition pos ++ 
+        "variable " ++ showIdent ident ++ " not defined"
+
+verifyVariableIsNotDefined :: Ident -> Position -> PreprocessorMonad ()
+verifyVariableIsNotDefined ident pos = do
+    isDefined <- hasVariable ident
+    when isDefined $ do
+        VD _ vbl prevPos <- getVariable ident pos
+        bl <- getBlockLevel
+        when (bl == vbl) $
+            throwError $ errorWithPosition pos ++ "variable " ++ showIdent ident
+                ++ " already defined at " ++ showPosition prevPos
+
+
+enterBlock :: Env -> PreprocessorMonad Env
+enterBlock (E funcs vars retType bl) =
+    return $ E funcs vars retType (bl + 1)
+
+getBlockLevel :: PreprocessorMonad Integer
+getBlockLevel = do
+    E _ _ _ bl <- get
+    return bl
+
+
+setReturnType :: Type Position -> PreprocessorMonad ()
+setReturnType retType = do
+    E funcs vars _ bl <- get
+    put $ E funcs vars retType bl
+
+getReturnType :: PreprocessorMonad (Type Position)
+getReturnType = do
+    E _ _ retType _ <- get
+    return retType
+
+
+hasFunction :: Ident -> PreprocessorMonad Bool
+hasFunction ident = do
+    E funcs _ _ _ <- get
+    return $ member ident funcs
+
+getFunction :: Ident -> Position -> PreprocessorMonad FunctionDef
+getFunction ident pos = do
+    E funcs _ _ _ <- get
+    verifyFunctionIsDefined ident pos
+    return $ funcs ! ident
+
+addFunction :: TopDef Position -> PreprocessorMonad ()
+addFunction (FnDef pos fnType ident args _) = do
+    E funcs vars ret bl <- get
+    verifyFunctionIsNotDefined ident pos
+    verifyUniqueArguments args ident pos
+    let stype = extractType fnType
+    let sargs = extractArgumentTypes args
+    put $ E (insert ident (FD stype sargs pos) funcs) vars ret bl
+    
+verifyFunctionIsDefined :: Ident -> Position -> PreprocessorMonad ()
+verifyFunctionIsDefined ident pos = do
+    isDefined <- hasFunction ident
+    unless isDefined $ 
+        throwError $ errorWithPosition pos ++ 
+        "trying to call undefined function " ++ showIdent ident
+
+verifyFunctionIsNotDefined :: Ident -> Position -> PreprocessorMonad ()
+verifyFunctionIsNotDefined ident pos = do
+    isDefined <- hasFunction ident
+    when isDefined $ do
+        FD _ _ prevPos <- getFunction ident pos
+        throwError $ errorWithPosition pos ++ "function " ++ showIdent ident
+                     ++ " already defined at " ++ showPosition prevPos
+
+verifyUniqueArguments :: [Arg Position] -> Ident -> Position -> PreprocessorMonad ()
+verifyUniqueArguments args funIdent pos = do
+    let idents = extractArgumentIdents args
+    let uniqueIdents = nub idents
+    unless (length idents == length uniqueIdents) $ 
+        throwError $ errorWithPosition pos ++ "duplicated argument in function "
+        ++ showIdent funIdent
+
+
+extractArgumentTypes :: [Arg Position] -> [Type Position]
+extractArgumentTypes = map extractArgumentType
+
+extractArgumentType :: Arg Position -> Type Position
+extractArgumentType (Arg _ argType _) = extractType argType
+
+extractArgumentIdent :: Arg Position -> Ident
+extractArgumentIdent (Arg _ _ ident) = ident
+
+extractArgumentIdents :: [Arg Position] -> [Ident]
+extractArgumentIdents = map extractArgumentIdent
+
+
+extractType :: Type Position -> Type Position
+extractType (Int _) = Int Nothing
+extractType (Str _) = Str Nothing
+extractType (Bool _) = Bool Nothing
+extractType (Void _) = Void Nothing
+extractType (Fun _ rt ats) = Fun Nothing (extractType rt) (map extractType ats)
+
+extractPosition :: Type Position -> Position
+extractPosition (Int pos) = pos
+extractPosition (Str pos) = pos
+extractPosition (Bool pos) = pos
+extractPosition (Void pos) = pos
+extractPosition (Fun pos _ _) = pos
+
+
+errorWithPosition :: Position -> String
+errorWithPosition Nothing = "Error: "
+errorWithPosition loc@(Just _) = 
+    "Error at " ++ showPosition loc ++ ": "
+
+showPosition :: Position -> String
+showPosition Nothing = ""
+showPosition (Just (line, column)) = 
+    "line " ++ show line ++ ", column " ++ show column
+
+showIdent :: Ident -> String
+showIdent ident = "`" ++ printTree ident ++ "`"
