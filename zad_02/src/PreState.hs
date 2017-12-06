@@ -65,8 +65,7 @@ getVariable ident pos = do
 addVariable :: Type Position -> Ident -> PreprocessorMonad ()
 addVariable vt ident = do
     (E funcs vars ret bl) <- get
-    let t = extractType vt
-    let pos = extractPosition vt
+    let (t, pos) = extractTypePosition vt
     verifyVariableIsNotDefined ident pos
     put $ E funcs (insert ident (VD t bl pos) vars) ret bl
 
@@ -86,6 +85,13 @@ verifyVariableIsNotDefined ident pos = do
         when (bl == vbl) $
             throwError $ errorWithPosition pos ++ "variable " ++ showIdent ident
                 ++ " already defined at " ++ showPosition prevPos
+
+
+addArgs :: [Arg Position] -> PreprocessorMonad ()
+addArgs = mapM_ addArg
+
+addArg :: Arg Position -> PreprocessorMonad ()
+addArg (Arg _ vt ident) = addVariable vt ident
 
 
 enterBlock :: Env -> PreprocessorMonad Env
@@ -159,12 +165,14 @@ extractArgumentTypes = map extractArgumentType
 extractArgumentType :: Arg Position -> Type Position
 extractArgumentType (Arg _ argType _) = extractType argType
 
-extractArgumentIdent :: Arg Position -> Ident
-extractArgumentIdent (Arg _ _ ident) = ident
-
 extractArgumentIdents :: [Arg Position] -> [Ident]
 extractArgumentIdents = map extractArgumentIdent
 
+extractArgumentIdent :: Arg Position -> Ident
+extractArgumentIdent (Arg _ _ ident) = ident
+
+extractTypePosition :: Type Position -> (Type Position, Position)
+extractTypePosition vt = (extractType vt, extractPosition vt)
 
 extractType :: Type Position -> Type Position
 extractType (Int _) = Int Nothing
@@ -193,3 +201,6 @@ showPosition (Just (line, column)) =
 
 showIdent :: Ident -> String
 showIdent ident = "`" ++ printTree ident ++ "`"
+
+showType :: Type Position -> String
+showType t = "`" ++ printTree t ++ "`"
