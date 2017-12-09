@@ -68,7 +68,7 @@ runCompiler path s = let ts = myLexer s in case pProgram ts of
         hPutStrLn stderr e
       Right tr -> do 
         hPutStrLn stderr "OK"
-        -- showTree tr 
+        showTree tr 
     -- h <- openFile path WriteMode    
     -- mapM_ (hPutStrLn h) (compile tree)
     -- hClose h

@@ -180,12 +180,44 @@ verifyMain = do
         ++ "wrong type of `main`, should return int and take no arguments"
 
 
+
+optimizeFunctions :: [TopDef Position] -> [TopDef Position]
+optimizeFunctions = map optimizeFunction
+
+optimizeFunction :: TopDef Position -> TopDef Position
+optimizeFunction (FnDef pos retType ident args block) =
+    FnDef pos retType ident args (optimizeBlock block)
+
+
+optimizeBlock :: Block Position -> Block Position
+optimizeBlock (Block pos stmts) = Block pos (optimizeStmts stmts)
+
+
+optimizeStmts :: [Stmt Position] -> [Stmt Position]
+optimizeStmts = map optimizeStmt
+
+optimizeStmt :: Stmt Position -> Stmt Position
+optimizeStmt (Empty pos) = Empty pos
+optimizeStmt (BStmt pos block) = BStmt pos (optimizeBlock block)
+optimizeStmt (Decl pos vt items) = Decl pos vt items
+optimizeStmt (Ass pos ident expr) = Ass pos ident expr
+optimizeStmt (Incr pos ident) = Incr pos ident
+optimizeStmt (Decr pos ident) = Decr pos ident
+optimizeStmt (Ret pos expr) = Ret pos expr
+optimizeStmt (VRet pos) = VRet pos
+optimizeStmt (Cond pos expr stmt) = Cond pos expr stmt
+optimizeStmt (CondElse pos expr stmt1 stmt2) = CondElse pos expr stmt1 stmt2
+optimizeStmt (While pos expr stmt) = While pos expr stmt
+optimizeStmt (SExp pos expr) = SExp pos expr
+
+
 analyzeProgram :: Program Position -> PreprocessorMonad (Program Position)
-analyzeProgram tr@(Program _ topDefs) = do
+analyzeProgram (Program pos topDefs) = do
     collectFunctions topDefs
     verifyMain
     validateFunctions topDefs
-    return tr
+    let optTr = optimizeFunctions topDefs
+    return $ Program pos optTr
 
 
 preprocess :: Program Position -> AnalysisResult
