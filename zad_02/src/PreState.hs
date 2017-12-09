@@ -41,8 +41,17 @@ data Env = E {
 
 type PreprocessorMonad = ExceptT String (State Env)
 
+
+builtInFunctions :: Map Ident FunctionDef
+builtInFunctions = fromList 
+    [ (Ident "printInt", FD NVoid [NInt] Nothing)
+    , (Ident "printString", FD NVoid [NStr] Nothing) 
+    , (Ident "error", FD NVoid [] Nothing)
+    , (Ident "readInt", FD NInt [] Nothing)
+    , (Ident "readString", FD NStr [] Nothing) ]
+
 emptyEnv :: Env
-emptyEnv = E empty empty NVoid 0
+emptyEnv = E builtInFunctions empty NVoid 0
 
 local :: MonadState s m => (s -> m s) -> m a -> m a
 local modState comp = do
@@ -199,7 +208,7 @@ errorWithPosition loc@(Just _) =
     "Error at " ++ showPosition loc ++ ": "
 
 showPosition :: Position -> String
-showPosition Nothing = ""
+showPosition Nothing = "<built-in>"
 showPosition (Just (line, column)) = 
     "line " ++ show line ++ ", column " ++ show column
 

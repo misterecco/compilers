@@ -48,7 +48,7 @@ validateStmt (Ret pos expr) = do
     validateType pos et t
 validateStmt (VRet pos) = do
     et <- getReturnType
-    validateType pos NVoid et
+    validateType pos et NVoid
 validateStmt (Cond pos expr stmt) = do
     t <- validateExpr expr
     validateType pos NBool t
@@ -103,12 +103,12 @@ validateExpr (EMul pos lexpr _ rexpr) = do
 validateExpr (EAdd pos lexpr _ rexpr) = do
     lt <- validateIntOrStringExpr pos lexpr -- FIXME: `-` is not allowed for strings
     rt <- validateExpr rexpr
-    validateType pos lt rt
+    validateType pos rt lt
     return lt
 validateExpr (ERel pos lexpr _ rexpr) = do -- FIXME: EQU, NE can be applied to bools
     lt <- validateIntOrStringExpr pos lexpr
     rt <- validateExpr rexpr
-    validateType pos lt rt
+    validateType pos rt lt
     return NBool
 validateExpr (EAnd pos lexpr rexpr) = do
     validateBoolExpr pos lexpr
@@ -124,7 +124,7 @@ validateIntOrStringExpr pos expr = do
     let allowedTypes = [NInt, NStr]
     unless (elem t allowedTypes) $
         throwError $ errorWithPosition pos ++ "type mismatch: "
-        ++ "expected string or integer, found: " ++ showNType t
+        ++ "expected: string or integer, found: " ++ showNType t
     return t
 
 validateIntExpr :: Position -> Expr Position -> PreprocessorMonad NType
@@ -141,12 +141,19 @@ validateBoolExpr pos bexpr = do
 
 
 validateTypes :: Position -> [NType] -> [NType] -> PreprocessorMonad ()
-validateTypes pos = zipWithM_ (validateType pos)
+validateTypes pos et at = do
+    unless (net == nat) $ throwError $ errorWithPosition pos ++ "type mismatch: "
+        ++ "passing " ++ show nat ++ " argument(s), expected " ++ show net
+        ++ " argument(s)" 
+    zipWithM_ (validateType pos) et at
+        where
+            net = length et
+            nat = length at
 
 validateType :: Position -> NType -> NType -> PreprocessorMonad ()
 validateType pos et t =
     unless (t == et) $ throwError $ errorWithPosition pos ++ "type mismatch: " 
-        ++ "expected " ++ showNType et ++ ", found: " ++ showNType t
+        ++ "expected: " ++ showNType et ++ ", found: " ++ showNType t
 
 
 collectFunctions :: [TopDef Position] -> PreprocessorMonad ()
@@ -158,8 +165,8 @@ collectFunction = addFunction
 
 analyzeProgram :: Program Position -> PreprocessorMonad (Program Position)
 analyzeProgram tr@(Program _ topDefs) = do
-    -- TODO: add predefined functions (could be in default state or here)
     collectFunctions topDefs
+    -- TODO: verify the type of `main`
     validateFunctions topDefs
     return tr
 
