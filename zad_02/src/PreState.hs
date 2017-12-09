@@ -9,11 +9,14 @@ import Control.Monad.Except
 import Control.Monad.State
 
 
+data NType = NInt | NStr | NBool | NVoid | NFun NType [NType]
+    deriving (Eq)
+
 type Position = Maybe (Int, Int)
 
 data FunctionDef = FD {
-    returnType :: Type Position,
-    argumentTypes :: [Type Position],
+    returnType :: NType,
+    argumentTypes :: [NType],
     position :: Position
 }
 -- instance Eq FunctionDef where
@@ -22,7 +25,7 @@ data FunctionDef = FD {
 --         && argumentTypes rhs == argumentTypes lhs
 
 data VariableDef = VD {
-    varType :: Type Position,
+    varType :: NType,
     varBlock :: Integer,
     varPos :: Position
 }
@@ -32,14 +35,14 @@ data VariableDef = VD {
 data Env = E {
     functions :: Map Ident FunctionDef,
     variables :: Map Ident VariableDef,
-    funRetType :: Type Position,
+    funRetType :: NType,
     blockLevel :: Integer
 }
 
 type PreprocessorMonad = ExceptT String (State Env)
 
 emptyEnv :: Env
-emptyEnv = E empty empty (Void Nothing) 0
+emptyEnv = E empty empty NVoid 0
 
 local :: MonadState s m => (s -> m s) -> m a -> m a
 local modState comp = do
@@ -106,10 +109,11 @@ getBlockLevel = do
 
 setReturnType :: Type Position -> PreprocessorMonad ()
 setReturnType retType = do
+    let rt = extractType retType
     E funcs vars _ bl <- get
-    put $ E funcs vars retType bl
+    put $ E funcs vars rt bl
 
-getReturnType :: PreprocessorMonad (Type Position)
+getReturnType :: PreprocessorMonad NType
 getReturnType = do
     E _ _ retType _ <- get
     return retType
@@ -159,10 +163,10 @@ verifyUniqueArguments args funIdent pos = do
         ++ showIdent funIdent
 
 
-extractArgumentTypes :: [Arg Position] -> [Type Position]
+extractArgumentTypes :: [Arg Position] -> [NType]
 extractArgumentTypes = map extractArgumentType
 
-extractArgumentType :: Arg Position -> Type Position
+extractArgumentType :: Arg Position -> NType
 extractArgumentType (Arg _ argType _) = extractType argType
 
 extractArgumentIdents :: [Arg Position] -> [Ident]
@@ -171,15 +175,15 @@ extractArgumentIdents = map extractArgumentIdent
 extractArgumentIdent :: Arg Position -> Ident
 extractArgumentIdent (Arg _ _ ident) = ident
 
-extractTypePosition :: Type Position -> (Type Position, Position)
+extractTypePosition :: Type Position -> (NType, Position)
 extractTypePosition vt = (extractType vt, extractPosition vt)
 
-extractType :: Type Position -> Type Position
-extractType (Int _) = Int Nothing
-extractType (Str _) = Str Nothing
-extractType (Bool _) = Bool Nothing
-extractType (Void _) = Void Nothing
-extractType (Fun _ rt ats) = Fun Nothing (extractType rt) (map extractType ats)
+extractType :: Type Position -> NType
+extractType (Int _) = NInt
+extractType (Str _) = NStr
+extractType (Bool _) = NBool
+extractType (Void _) = NVoid
+extractType (Fun _ rt ats) = NFun (extractType rt) (map extractType ats)
 
 extractPosition :: Type Position -> Position
 extractPosition (Int pos) = pos
@@ -204,3 +208,11 @@ showIdent ident = "`" ++ printTree ident ++ "`"
 
 showType :: Type Position -> String
 showType t = "`" ++ printTree t ++ "`"
+
+showNType :: NType -> String
+showNType NInt = "int"
+showNType NStr = "string"
+showNType NBool = "bool"
+showNType NVoid = "void"
+showNType (NFun rt args) = "function " ++ showNType rt ++ 
+            " (" ++ unwords (intersperse ", " (map showNType args)) ++ ")"
