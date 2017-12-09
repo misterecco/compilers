@@ -19,10 +19,10 @@ data FunctionDef = FD {
     argumentTypes :: [NType],
     position :: Position
 }
--- instance Eq FunctionDef where
---     lhs == rhs = 
---         returnType lhs == returnType rhs
---         && argumentTypes rhs == argumentTypes lhs
+instance Eq FunctionDef where
+    lhs == rhs = 
+        returnType lhs == returnType rhs
+        && argumentTypes lhs == argumentTypes rhs
 
 data VariableDef = VD {
     varType :: NType,
@@ -41,6 +41,8 @@ data Env = E {
 
 type PreprocessorMonad = ExceptT String (State Env)
 
+mainDef :: FunctionDef
+mainDef = FD NInt [] Nothing
 
 builtInFunctions :: Map Ident FunctionDef
 builtInFunctions = fromList 
@@ -223,5 +225,5 @@ showNType NInt = "int"
 showNType NStr = "string"
 showNType NBool = "bool"
 showNType NVoid = "void"
-showNType (NFun rt args) = "function " ++ showNType rt ++ 
+showNType (NFun rt args) = showNType rt ++ 
             " (" ++ unwords (intersperse ", " (map showNType args)) ++ ")"

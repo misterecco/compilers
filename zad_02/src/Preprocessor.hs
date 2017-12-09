@@ -163,10 +163,17 @@ collectFunction :: TopDef Position -> PreprocessorMonad ()
 collectFunction = addFunction
 
 
+verifyMain :: PreprocessorMonad ()
+verifyMain = do
+    m <- getFunction (Ident "main") Nothing
+    unless (m == mainDef) $ throwError $ errorWithPosition (position m) 
+        ++ "wrong type of `main`, should return int and take no arguments"
+
+
 analyzeProgram :: Program Position -> PreprocessorMonad (Program Position)
 analyzeProgram tr@(Program _ topDefs) = do
     collectFunctions topDefs
-    -- TODO: verify the type of `main`
+    verifyMain
     validateFunctions topDefs
     return tr
 

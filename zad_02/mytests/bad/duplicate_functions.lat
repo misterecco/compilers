@@ -3,7 +3,7 @@ int main() {
 	return 0 ;
 }
 
-int foo(int y,int z) {
+int foo(int y, int z) {
     return y;
 }
 
