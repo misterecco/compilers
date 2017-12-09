@@ -1,0 +1,4 @@
+int main() {
+    string x = "aaa" - "bbb";
+    return 0;
+}

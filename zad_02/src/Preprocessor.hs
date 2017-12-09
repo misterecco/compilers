@@ -38,10 +38,10 @@ validateStmt (Ass pos ident expr) = do
     validateType pos vt t
 validateStmt (Incr pos ident) = do
     VD t _ _ <- getVariable ident pos
-    validateType pos NBool t
+    validateType pos NInt t
 validateStmt (Decr pos ident) = do
     VD t _ _ <- getVariable ident pos
-    validateType pos NBool t
+    validateType pos NInt t
 validateStmt (Ret pos expr) = do
     et <- getReturnType
     t <- validateExpr expr
@@ -100,16 +100,21 @@ validateExpr (Not pos expr) = validateBoolExpr pos expr
 validateExpr (EMul pos lexpr _ rexpr) = do
     validateIntExpr pos lexpr
     validateIntExpr pos rexpr
-validateExpr (EAdd pos lexpr _ rexpr) = do
-    lt <- validateIntOrStringExpr pos lexpr -- FIXME: `-` is not allowed for strings
-    rt <- validateExpr rexpr
-    validateType pos rt lt
-    return lt
-validateExpr (ERel pos lexpr _ rexpr) = do -- FIXME: EQU, NE can be applied to bools
-    lt <- validateIntOrStringExpr pos lexpr
-    rt <- validateExpr rexpr
-    validateType pos rt lt
-    return NBool
+validateExpr (EAdd pos lexpr op rexpr) = case op of
+    (Plus _) -> validatePairOneOf pos lexpr rexpr [NInt, NStr]
+    (Minus _) -> do
+        validateIntExpr pos lexpr
+        validateIntExpr pos rexpr
+validateExpr (ERel pos lexpr op rexpr) = case op of
+    (EQU _) -> do
+        validatePairOneOf pos lexpr rexpr[NInt, NBool, NStr]
+        return NBool
+    (NE _) -> do
+        validatePairOneOf pos lexpr rexpr[NInt, NBool, NStr]
+        return NBool
+    _ -> do
+        validatePairOneOf pos lexpr rexpr[NInt, NStr]
+        return NBool
 validateExpr (EAnd pos lexpr rexpr) = do
     validateBoolExpr pos lexpr
     validateBoolExpr pos rexpr
@@ -117,14 +122,19 @@ validateExpr (EOr pos lexpr rexpr) = do
     validateBoolExpr pos lexpr
     validateBoolExpr pos rexpr
 
+validatePairOneOf :: Position -> Expr Position -> Expr Position -> [NType] -> PreprocessorMonad NType
+validatePairOneOf pos lexpr rexpr at = do
+    lt <- validateOneOf pos lexpr at
+    rt <- validateExpr rexpr
+    validateType pos rt lt
+    return lt
 
-validateIntOrStringExpr :: Position -> Expr Position -> PreprocessorMonad NType
-validateIntOrStringExpr pos expr = do
+validateOneOf :: Position -> Expr Position -> [NType] -> PreprocessorMonad NType
+validateOneOf pos expr allowedTypes = do
     t <- validateExpr expr
-    let allowedTypes = [NInt, NStr]
     unless (elem t allowedTypes) $
-        throwError $ errorWithPosition pos ++ "type mismatch: "
-        ++ "expected: string or integer, found: " ++ showNType t
+        throwError $ errorWithPosition pos ++ "type mismatch: expected one of: " 
+        ++ showNTypes allowedTypes ++ ", found: " ++ showNType t
     return t
 
 validateIntExpr :: Position -> Expr Position -> PreprocessorMonad NType

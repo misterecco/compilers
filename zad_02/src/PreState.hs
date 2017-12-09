@@ -3,7 +3,7 @@ module PreState where
 import AbsLatte
 import PrintLatte
 
-import Data.Map hiding (map)
+import Data.Map hiding (map, foldr)
 import Data.List hiding (insert)
 import Control.Monad.Except
 import Control.Monad.State
@@ -217,13 +217,12 @@ showPosition (Just (line, column)) =
 showIdent :: Ident -> String
 showIdent ident = "`" ++ printTree ident ++ "`"
 
-showType :: Type Position -> String
-showType t = "`" ++ printTree t ++ "`"
+showNTypes :: [NType] -> String
+showNTypes tps = concat (intersperse ", " (map showNType tps))
 
 showNType :: NType -> String
 showNType NInt = "int"
 showNType NStr = "string"
 showNType NBool = "bool"
 showNType NVoid = "void"
-showNType (NFun rt args) = showNType rt ++ 
-            " (" ++ unwords (intersperse ", " (map showNType args)) ++ ")"
+showNType (NFun rt args) = showNType rt ++ " (" ++ showNTypes args ++ ")"
