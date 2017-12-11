@@ -5,6 +5,7 @@ import PreState
 
 import Control.Monad.Except
 import Control.Monad.State
+import Data.Maybe
 
 
 type AnalysisResult = Either String (Program Position)
@@ -180,7 +181,6 @@ verifyMain = do
         ++ "wrong type of `main`, should return int and take no arguments"
 
 
-
 optimizeFunctions :: [TopDef Position] -> [TopDef Position]
 optimizeFunctions = map optimizeFunction
 
@@ -194,21 +194,51 @@ optimizeBlock (Block pos stmts) = Block pos (optimizeStmts stmts)
 
 
 optimizeStmts :: [Stmt Position] -> [Stmt Position]
-optimizeStmts = map optimizeStmt
+optimizeStmts = mapMaybe optimizeStmt
 
-optimizeStmt :: Stmt Position -> Stmt Position
-optimizeStmt (Empty pos) = Empty pos
-optimizeStmt (BStmt pos block) = BStmt pos (optimizeBlock block)
-optimizeStmt (Decl pos vt items) = Decl pos vt items
-optimizeStmt (Ass pos ident expr) = Ass pos ident expr
-optimizeStmt (Incr pos ident) = Incr pos ident
-optimizeStmt (Decr pos ident) = Decr pos ident
-optimizeStmt (Ret pos expr) = Ret pos expr
-optimizeStmt (VRet pos) = VRet pos
-optimizeStmt (Cond pos expr stmt) = Cond pos expr stmt
-optimizeStmt (CondElse pos expr stmt1 stmt2) = CondElse pos expr stmt1 stmt2
-optimizeStmt (While pos expr stmt) = While pos expr stmt
-optimizeStmt (SExp pos expr) = SExp pos expr
+optimizeStmt :: Stmt Position -> Maybe (Stmt Position)
+optimizeStmt (Empty _) = Nothing
+optimizeStmt (BStmt pos block) = Just $ BStmt pos (optimizeBlock block)
+optimizeStmt s@(Cond _ expr stmt) = case expr of
+    ELitTrue _ -> Just stmt
+    ELitFalse _ -> Nothing
+    _ -> Just s
+optimizeStmt s@(CondElse _ expr stmt1 stmt2) = case expr of
+    ELitTrue _ -> Just stmt1
+    ELitFalse _ -> Just stmt2
+    _ -> Just s
+optimizeStmt s@(While _ expr _) = case expr of
+    ELitFalse _ -> Nothing
+    _ -> Just s
+optimizeStmt s = Just s
+
+
+checkReturnFunctions :: [TopDef Position] -> PreprocessorMonad ()
+checkReturnFunctions = mapM_ checkReturnFunction
+
+checkReturnFunction :: TopDef Position -> PreprocessorMonad ()
+checkReturnFunction (FnDef pos retType ident args block) =
+    case retType of
+        Void _ -> return ()
+        _ -> unless (checkReturnBlock block) $ throwError $ errorWithPosition pos
+                ++ "missing return in function " ++ showIdent ident 
+                ++ ", function should return " ++ showType retType
+
+
+checkReturnBlock :: Block Position -> Bool
+checkReturnBlock (Block _ stmts) = checkReturnStmts stmts
+
+
+checkReturnStmts :: [Stmt Position] -> Bool
+checkReturnStmts [] = False
+checkReturnStmts (st:sts) = checkReturnStmt st || checkReturnStmts sts
+
+checkReturnStmt :: Stmt Position -> Bool
+checkReturnStmt (BStmt _ block) = checkReturnBlock block
+checkReturnStmt s@(CondElse _ expr stmt1 stmt2) = 
+    checkReturnStmt stmt1 && checkReturnStmt stmt2
+checkReturnStmt (Ret _ _) = True
+checkReturnStmt _ = False
 
 
 analyzeProgram :: Program Position -> PreprocessorMonad (Program Position)
@@ -217,6 +247,7 @@ analyzeProgram (Program pos topDefs) = do
     verifyMain
     validateFunctions topDefs
     let optTr = optimizeFunctions topDefs
+    checkReturnFunctions optTr
     return $ Program pos optTr
 
 

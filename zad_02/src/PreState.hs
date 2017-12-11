@@ -226,3 +226,10 @@ showNType NStr = "string"
 showNType NBool = "bool"
 showNType NVoid = "void"
 showNType (NFun rt args) = showNType rt ++ " (" ++ showNTypes args ++ ")"
+
+showType :: Type Position -> String
+showType (Int _) = "int"
+showType (Str _) = "string"
+showType (Bool _) = "bool"
+showType (Void _) = "void"
+showType _ = ""
