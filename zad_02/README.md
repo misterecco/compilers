@@ -2,7 +2,7 @@
 ## Tomasz Kępa
 ## MRJP 2017/2018
 
-Kompilatory zostały napisane w języku **Haskell**, budowane są za 
+Kompilator został napisany w języku **Haskell**, budowany jest 
 przy użyciu narzędzia **cabal**.
 
 Wszystkie używane biblioteki zadeklarowane są w pliku `src/latte.cabal`. 
@@ -15,7 +15,12 @@ Projekt kompiluje się przez wywołanie `make` w głównym katalogu projektu.
 
 Struktura projektu: 
     - wszystkie źródła znajdują się w katalogu `src`
-    - kompilator, poza plikami generowanymi przez BNFC, składa się z dwóch plików 
-        - jeden odpowiada za odpalenie leksera i parsera oraz obsługę IO 
-        i wywołanie `gas` (`Compiler.hs`),
-        drugi jest czysto funkcyjny i odpowiada za generację kodu (`Latte.h`)
+    - kompilator, poza plikami generowanymi przez BNFC, składa się
+      z następujących części  
+        - `Compiler.hs` - zawiaduje wywałaniami innych modułów (lekser, parser,
+          preprocesor) oraz obsługę IO (operacje na plikach, wywoływanie
+          zewnętrznych programów) 
+        - `PreState.hs` - definicja monady i pomocniczych funkcji używanych
+          przez preprocesor
+        - `Preprocessor.hs` - optymalizacja na poziomie AST, sprawdzanie
+          poprawności programów 

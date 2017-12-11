@@ -5,7 +5,12 @@ Build-Type:	Simple
 Cabal-Version:  >=1.10
 
 executable latc_x86_64
-  build-depends:      base >= 4, mtl, array, containers, process >= 1.2.0.0
+  build-depends:      
+    base >= 4, 
+    mtl, 
+    array, 
+    containers, 
+    process >= 1.2.0.0
   other-modules:      
     AbsLatte, 
     ErrM, 

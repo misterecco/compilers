@@ -8,11 +8,11 @@ $(ALL):
 	cp $(SOURCE)/dist/build/$@/$@ $@
 
 common:
-	make -C $(SOURCE)
+	# make -C $(SOURCE)
 	cd $(SOURCE) && cabal configure && cabal build && cd ..
 
 clean:
-	make -C $(SOURCE) distclean
+	# make -C $(SOURCE) distclean
 	rm -rf $(SOURCE)/dist
 
 mrproper: clean

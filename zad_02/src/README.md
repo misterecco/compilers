@@ -3,7 +3,7 @@
 ** Front-end
 
 Błędy:
-  - błędy parsera - DONE
+  - błędy parsera
   - powtórzone argumenty funkcji
   - podwójne deklaracje
   - main inny niż definiowany przez język (zwraca int, bez argumentów)
@@ -12,12 +12,7 @@ Błędy:
   - niezgodność typów
     - złe przypisania
     - pusty return
-    - brak/nieosiągalny return
+    - brak return
     - zły zwracany typ
     - złe typy parametrów funkcji/operatorów
     - zła liczba argumentów
-  - kolizje zmienna i funkcja
-
-Warningi:
-  - więcej niż jeden return // tu raczej nie da się sprawdzić wszystkich przypadków
-  - nieużywane zmienne
