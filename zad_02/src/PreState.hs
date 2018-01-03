@@ -80,15 +80,21 @@ addVariable :: Type Position -> Ident -> PreprocessorMonad ()
 addVariable vt ident = do
     (E funcs vars ret bl) <- get
     let (t, pos) = extractTypePosition vt
+    verifyNotVoid t ident pos
     verifyVariableIsNotDefined ident pos
     put $ E funcs (insert ident (VD t bl pos) vars) ret bl
+
+verifyNotVoid :: NType -> Ident -> Position -> PreprocessorMonad ()
+verifyNotVoid vt ident pos = when (vt == NVoid) $ 
+    throwError $ errorWithPosition pos 
+        ++ "variable " ++ showIdent ident ++ " cannot be of void type"
 
 verifyVariableIsDefined :: Ident -> Position -> PreprocessorMonad ()
 verifyVariableIsDefined ident pos = do
     isDefined <- hasVariable ident
     unless isDefined $ 
-        throwError $ errorWithPosition pos ++ 
-        "variable " ++ showIdent ident ++ " not defined"
+        throwError $ errorWithPosition pos 
+            ++ "variable " ++ showIdent ident ++ " not defined"
 
 verifyVariableIsNotDefined :: Ident -> Position -> PreprocessorMonad ()
 verifyVariableIsNotDefined ident pos = do

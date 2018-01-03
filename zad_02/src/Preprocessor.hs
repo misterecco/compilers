@@ -53,16 +53,16 @@ validateStmt (VRet pos) = do
 validateStmt (Cond pos expr stmt) = do
     t <- validateExpr expr
     validateType pos NBool t
-    validateStmt stmt
+    local enterBlock $ validateStmt stmt
 validateStmt (CondElse pos expr stmt1 stmt2) = do
     t <- validateExpr expr
     validateType pos NBool t
-    validateStmt stmt1
-    validateStmt stmt2
+    local enterBlock $ validateStmt stmt1
+    local enterBlock $ validateStmt stmt2
 validateStmt (While pos expr stmt) = do
     t <- validateExpr expr
     validateType pos NBool t
-    validateStmt stmt
+    local enterBlock $ validateStmt stmt
 validateStmt (SExp _ expr) = do 
     validateExpr expr
     return ()

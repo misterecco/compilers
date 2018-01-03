@@ -18,8 +18,8 @@ import ErrM
 
 
 showTree :: (Show a, Print a) => a -> IO ()
-showTree tree = do
-  hPutStrLn stderr $ "\n[Abstract Syntax]\n\n" ++ show tree
+showTree tree =
+  -- hPutStrLn stderr $ "\n[Abstract Syntax]\n\n" ++ show tree
   hPutStrLn stderr $ "\n[Linearized tree]\n\n" ++ printTree tree
 
 
@@ -66,6 +66,7 @@ runCompiler path s = let ts = myLexer s in case pProgram ts of
       Left e -> do
         hPutStrLn stderr "ERROR"    
         hPutStrLn stderr e
+        exitFailure
       Right tr -> do 
         hPutStrLn stderr "OK"
         showTree tr 

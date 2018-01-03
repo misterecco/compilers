@@ -1,0 +1,6 @@
+int main () {
+  int a = 3;
+  while (3 > 1) string x = "Hoho";
+  printString (x);
+  return 0 ;
+}

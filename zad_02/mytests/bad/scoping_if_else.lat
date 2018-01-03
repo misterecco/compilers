@@ -1,0 +1,7 @@
+int main () {
+  int a = 3;
+  if (a > 1) string x = "Hoho";
+  else int x = 10;
+  printString (x);
+  return 0 ;
+}
