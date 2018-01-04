@@ -29,8 +29,6 @@ data VariableDef = VD {
     varBlock :: Integer,
     varPos :: Position
 }
--- instance Eq VariableDef where
---     lhs == rhs = varType lhs == varType lhs
 
 data Env = E {
     functions :: Map Ident FunctionDef,
