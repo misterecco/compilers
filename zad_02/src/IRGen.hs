@@ -1,7 +1,7 @@
-module Generator where
+module IRGen where
 
 import AbsLatte
-import CompState
+import GenState
 import PreState ( Position )
 
 import Control.Monad.State
@@ -24,6 +24,7 @@ toIrFunction (FnDef _ _ (Ident label) args block) = do
     emitLabel label
     local enterBlock $ do
         addArgs args
+        emitParams args
         toIrBlock block
 
 toIrBlock :: Block Position -> IRGenMonad ()
@@ -179,6 +180,14 @@ toSAssExpr op expr = do
     emitSAss op addr exprAddr
     return addr
 
+
+emitParams :: [Arg Position] -> IRGenMonad ()
+emitParams = mapM_ emitParam
+
+emitParam :: Arg Position -> IRGenMonad ()
+emitParam (Arg _ vt (Ident ident)) = do 
+    bl <- getBlockLevel
+    tell [IRParam (IRVar ident bl (extractType vt))]
 
 emitRet :: IRAddr -> IRGenMonad ()
 emitRet addr = tell [IRRet addr]

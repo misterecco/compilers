@@ -1,4 +1,4 @@
-module CompState where
+module GenState where
 
 import AbsLatte
 import PreState ( Position )
@@ -50,6 +50,7 @@ data IRInstr
     | IRCpy IRAddr IRAddr
     | IRLabel Label
     | IRRet IRAddr
+    | IRParam IRVar
 
 instance Show IRInstr where
     show (IRAss op dst l r) = 
@@ -65,6 +66,7 @@ instance Show IRInstr where
     show (IRCpy dst src) = show dst ++ " := " ++ show src
     show (IRLabel lbl) = lbl ++ ":"
     show (IRRet addr) = "return " ++ show addr
+    show (IRParam addr) = "parameter " ++ show addr
 
 data IRCmp = IRGt | IRLt | IRGe | IRLe | IREq | IRNe
 
@@ -114,6 +116,11 @@ local modState comp = do
 enterBlock :: CompState -> CompState
 enterBlock (CS nv nl bl vars funs) =
     CS nv nl (bl+1) vars funs
+
+getBlockLevel :: IRGenMonad Integer
+getBlockLevel = do
+    CS _ _ bl _ _ <- get
+    return bl
 
 
 showArgs :: Show a => [a] -> String

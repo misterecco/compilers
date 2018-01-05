@@ -21,7 +21,7 @@ executable latc_x86_64
     PreState,
     PrintLatte,
     Preprocessor,
-    CompState,
-    Generator
+    GenState,
+    IRGen
   default-language:   Haskell2010  
   main-is:            Compiler.hs

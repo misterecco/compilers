@@ -9,7 +9,7 @@ import System.Process
 import ParLatte
 import PrintLatte
 import Preprocessor
-import Generator
+import IRGen
 
 import ErrM
 
