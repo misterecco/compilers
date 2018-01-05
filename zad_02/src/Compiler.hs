@@ -2,15 +2,11 @@ module Main where
   
 import Data.List ( isSuffixOf )
 import System.IO
-import System.Environment ( getArgs, getProgName )
+import System.Environment ( getArgs )
 import System.Exit ( exitFailure, exitSuccess )
 import System.Process
-import Control.Monad ( when )
 
-import LexLatte
 import ParLatte
-import AsmLatte
-import AbsLatte
 import PrintLatte
 import Preprocessor
 import Generator
@@ -60,14 +56,11 @@ printUsage =
 
 
 runCompiler :: FilePath -> String -> IO ()
-runCompiler path s = let ts = myLexer s in case pProgram ts of
+runCompiler _path s = let ts = myLexer s in case pProgram ts of
   Ok tree -> do 
     let nt = preprocess tree
     case nt of
-      Left e -> do
-        hPutStrLn stderr "ERROR"    
-        hPutStrLn stderr e
-        exitFailure
+      Left e -> exitWithError e
       Right tr -> do 
         hPutStrLn stderr "OK"
         showTree tr 
@@ -77,10 +70,12 @@ runCompiler path s = let ts = myLexer s in case pProgram ts of
     -- h <- openFile path WriteMode    
     -- mapM_ (hPutStrLn h) (compile tree)
     -- hClose h
-  Bad e -> do
-    hPutStrLn stderr "ERROR"
-    hPutStrLn stderr e
-    exitFailure
+  Bad e -> exitWithError e
+  where 
+    exitWithError er = do
+      hPutStrLn stderr "ERROR"    
+      hPutStrLn stderr er
+      exitFailure
 
 
 main :: IO ()

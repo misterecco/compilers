@@ -53,20 +53,21 @@ toIrStmt (VRet _) = emitRet NoRet
 toIrStmt (Cond _ expr stmt) = do
     lTrue <- freshLabel
     lFalse <- freshLabel
-    toIrExpr (Just (lTrue, lFalse)) expr
+    _ <- toIrExpr (Just (lTrue, lFalse)) expr
     emitLabel lTrue
-    toIrStmt stmt
+    local enterBlock $ toIrStmt stmt
     emitLabel lFalse
 toIrStmt (CondElse _ expr sTrue sFalse) = do
     lTrue <- freshLabel
     lFalse <- freshLabel
     lEnd <- freshLabel
-    toIrExpr (Just (lTrue, lFalse)) expr
+    _ <- toIrExpr (Just (lTrue, lFalse)) expr
     emitLabel lTrue
-    toIrStmt sTrue
+    local enterBlock $ toIrStmt sTrue
     emitGoto lEnd
     emitLabel lFalse
-    toIrStmt sFalse
+    local enterBlock $ toIrStmt sFalse
+    emitGoto lEnd    
     emitLabel lEnd
 toIrStmt (While _ expr stmt) = do
     lLoop <- freshLabel
@@ -74,12 +75,13 @@ toIrStmt (While _ expr stmt) = do
     lEnd <- freshLabel
     emitGoto lCond
     emitLabel lLoop
-    toIrStmt stmt
+    local enterBlock $ toIrStmt stmt
+    emitGoto lCond    
     emitLabel lCond
-    toIrExpr (Just (lLoop, lEnd)) expr
+    _ <- toIrExpr (Just (lLoop, lEnd)) expr
     emitLabel lEnd
 toIrStmt (SExp _ expr) = do
-    toIrExpr Nothing expr
+    _ <- toIrExpr Nothing expr
     return ()
 
 

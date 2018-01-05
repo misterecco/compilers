@@ -133,7 +133,7 @@ validatePairOneOf pos lexpr rexpr at = do
 validateOneOf :: Position -> Expr Position -> [NType] -> PreprocessorMonad NType
 validateOneOf pos expr allowedTypes = do
     t <- validateExpr expr
-    unless (elem t allowedTypes) $
+    unless (t `elem` allowedTypes) $
         throwError $ errorWithPosition pos ++ "type mismatch: expected one of: " 
         ++ showNTypes allowedTypes ++ ", found: " ++ showNType t
     return t
@@ -230,8 +230,7 @@ checkReturnBlock (Block _ stmts) = checkReturnStmts stmts
 
 
 checkReturnStmts :: [Stmt Position] -> Bool
-checkReturnStmts [] = False
-checkReturnStmts (st:sts) = checkReturnStmt st || checkReturnStmts sts
+checkReturnStmts = foldr ((||) . checkReturnStmt) False
 
 checkReturnStmt :: Stmt Position -> Bool
 checkReturnStmt (BStmt _ block) = checkReturnBlock block
