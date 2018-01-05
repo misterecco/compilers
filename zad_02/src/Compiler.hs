@@ -1,6 +1,8 @@
 module Main where
   
+import Control.Monad
 import Data.List ( isSuffixOf )
+import Data.Map ( toList )
 import System.IO
 import System.Environment ( getArgs )
 import System.Exit ( exitFailure, exitSuccess )
@@ -10,6 +12,7 @@ import ParLatte
 import PrintLatte
 import Preprocessor
 import IRGen
+import CFG
 
 import ErrM
 
@@ -65,7 +68,13 @@ runCompiler _path s = let ts = myLexer s in case pProgram ts of
         hPutStrLn stderr "OK"
         showTree tr 
         let instrs = generateIR tr
-        mapM_ (hPrint stderr) instrs
+        -- mapM_ (hPrint stderr) instrs
+        let CFGS ord bls = generateCFG instrs
+        hPrint stderr $ ord
+        hPutStrLn stderr ""
+        forM_ (toList bls) (\bl -> do
+          hPutStrLn stderr $ "Block: " ++ fst bl
+          hPrint stderr $ snd bl )
         exitSuccess
     -- h <- openFile path WriteMode    
     -- mapM_ (hPutStrLn h) (compile tree)

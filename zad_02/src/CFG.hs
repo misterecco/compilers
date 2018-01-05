@@ -3,7 +3,8 @@ module CFG where
 import IRDef
 
 import Control.Monad.State
-import Data.Map
+import Data.List ( intercalate )
+import Data.Map hiding ( map )
 
 
 data CFGBlock = B {
@@ -12,6 +13,13 @@ data CFGBlock = B {
     nextBlocks :: [Label],
     prevBlocks :: [Label]
 }
+
+instance Show CFGBlock where
+    show (B _phi instrs nb pb) = unlines 
+        [ "Before: " ++ intercalate ", " pb
+        , "After: " ++ intercalate ", " nb
+        , "Instructions: "
+        , unlines (map show instrs) ]
 
 data CFGState = CFGS {
     blockOrder :: [Label],
@@ -42,13 +50,14 @@ genHelper [] cb bo = do
     let instrs = reverse cb
     let (IRLabel lbl) = head instrs
     addBlock lbl instrs
-    genHelper [] [] (lbl:bo)
+    genHelper [] [] bo
 genHelper (i:is) cb bo = case i of
-    IRLabel _ -> do
-        let instrs = reverse cb
-        let (IRLabel lbl) = head instrs
-        addBlock lbl instrs
-        genHelper is [] (lbl:bo)
+    IRLabel l -> do
+        when (length cb > 0) $ do
+            let instrs = reverse cb
+            let (IRLabel lbl) = head instrs
+            addBlock lbl instrs
+        genHelper is [i] (l:bo)
     _ -> genHelper is (i:cb) bo
 
 generateCFG :: [IRInstr] -> CFGState
