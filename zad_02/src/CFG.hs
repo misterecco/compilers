@@ -31,34 +31,76 @@ type CFGMonad = State CFGState
 initialState :: CFGState
 initialState = CFGS [] empty
 
-addBlock :: Label -> [IRInstr] -> CFGMonad ()
-addBlock label instrs = do
+addNewBlock :: Label -> [IRInstr] -> CFGMonad ()
+addNewBlock label instrs = do
     CFGS bo bs <- get
     put $ CFGS bo (insert label (B empty instrs [] []) bs)
+
+setBlock :: Label -> CFGBlock -> CFGMonad ()
+setBlock lbl bl = do
+    CFGS bo bs <- get
+    put $ CFGS bo (insert lbl bl bs)
+
+getBlock :: Label -> CFGMonad CFGBlock
+getBlock lbl = do
+    CFGS _ bls <- get
+    return $ bls ! lbl
 
 setBlockOrder :: [Label] -> CFGMonad ()
 setBlockOrder bo = do
     CFGS _ bs <- get
     put $ CFGS bo bs
 
+getBlockOrder :: CFGMonad [Label]
+getBlockOrder = do
+    CFGS bo _ <- get
+    return bo
 
-genHelper :: [IRInstr] -> [IRInstr] -> [Label] -> CFGMonad ()
-genHelper [] [] bo = do
+addEdge :: Label -> Label -> CFGMonad ()
+addEdge src dst = do
+    B sp si snb spb <- getBlock src
+    B dp di dnb dpb <- getBlock dst
+    setBlock src (B sp si (dst:snb) spb)
+    setBlock dst (B dp di dnb (src:dpb))
+
+
+cbHelper :: [IRInstr] -> [IRInstr] -> [Label] -> CFGMonad ()
+cbHelper [] [] bo = do
     let ordering = reverse bo
     setBlockOrder ordering
-genHelper [] cb bo = do
+cbHelper [] cb bo = do
     let instrs = reverse cb
     let (IRLabel lbl) = head instrs
-    addBlock lbl instrs
-    genHelper [] [] bo
-genHelper (i:is) cb bo = case i of
+    addNewBlock lbl instrs
+    cbHelper [] [] bo
+cbHelper (i:is) cb bo = case i of
     IRLabel l -> do
         when (length cb > 0) $ do
             let instrs = reverse cb
             let (IRLabel lbl) = head instrs
-            addBlock lbl instrs
-        genHelper is [i] (l:bo)
-    _ -> genHelper is (i:cb) bo
+            addNewBlock lbl instrs
+        cbHelper is [i] (l:bo)
+    _ -> cbHelper is (i:cb) bo
+
+
+findEdges :: Label -> CFGMonad ()
+findEdges lbl = do
+    B _ instrs _ _ <- getBlock lbl
+    let i = last instrs
+    case i of
+        IRGoto dst -> addEdge lbl dst
+        IRIf _ _ _ dst1 dst2 -> do
+            addEdge lbl dst1
+            addEdge lbl dst2
+        _ -> return ()
+
+
+createBlocks :: [IRInstr] -> CFGMonad ()
+createBlocks instrs = do
+    cbHelper instrs [] []
+    bo <- getBlockOrder
+    mapM_ findEdges bo
+
 
 generateCFG :: [IRInstr] -> CFGState
-generateCFG instrs = execState (genHelper instrs [] []) initialState
+generateCFG instrs = execState (createBlocks instrs) initialState
