@@ -42,7 +42,7 @@ data IRCmp = IRGt | IRLt | IRGe | IRLe | IREq | IRNe
 data IROp = IRAdd | IRSub | IRMul | IRDiv | IRMod | IRAnd | IROr
     deriving Show
 
-data IRSOp = IRNeg | IRNot | IRInc | IRDec
+data IRSOp = IRNeg | IRNot
     deriving Show
 
 data CompState = CS {

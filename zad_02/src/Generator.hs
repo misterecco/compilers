@@ -36,6 +36,51 @@ toIrStmt :: Stmt Position -> IRGenMonad ()
 toIrStmt (Empty _) = return ()
 toIrStmt (BStmt _ block) = local enterBlock $ toIrBlock block
 toIrStmt (Decl _ vt items) = toIrItems vt items
+toIrStmt (Ass _ (Ident ident) expr) = do
+    addr <- toIrExpr Nothing expr
+    varAddr <- getVariable ident
+    emitCpy varAddr addr
+toIrStmt (Incr _ (Ident ident)) = do
+    varAddr <- getVariable ident
+    emitAss IRAdd varAddr varAddr (ImmInt 1)
+toIrStmt (Decr _ (Ident ident)) = do
+    varAddr <- getVariable ident
+    emitAss IRSub varAddr varAddr (ImmInt 1)
+toIrStmt (Ret _ expr) = do
+    addr <- toIrExpr Nothing expr
+    emitRet addr
+toIrStmt (VRet _) = emitRet NoRet
+toIrStmt (Cond _ expr stmt) = do
+    lTrue <- freshLabel
+    lFalse <- freshLabel
+    toIrExpr (Just (lTrue, lFalse)) expr
+    emitLabel lTrue
+    toIrStmt stmt
+    emitLabel lFalse
+toIrStmt (CondElse _ expr sTrue sFalse) = do
+    lTrue <- freshLabel
+    lFalse <- freshLabel
+    lEnd <- freshLabel
+    toIrExpr (Just (lTrue, lFalse)) expr
+    emitLabel lTrue
+    toIrStmt sTrue
+    emitGoto lEnd
+    emitLabel lFalse
+    toIrStmt sFalse
+    emitLabel lEnd
+toIrStmt (While _ expr stmt) = do
+    lLoop <- freshLabel
+    lCond <- freshLabel
+    lEnd <- freshLabel
+    emitGoto lCond
+    emitLabel lLoop
+    toIrStmt stmt
+    emitLabel lCond
+    toIrExpr (Just (lLoop, lEnd)) expr
+    emitLabel lEnd
+toIrStmt (SExp _ expr) = do
+    toIrExpr Nothing expr
+    return ()
 
 
 toIrItems :: Type Position -> [Item Position] -> IRGenMonad ()
@@ -131,6 +176,10 @@ toSAssExpr op expr = do
     addr <- freshTemp t
     emitSAss op addr exprAddr
     return addr
+
+
+emitRet :: IRAddr -> IRGenMonad ()
+emitRet addr = tell [IRRet addr]
 
 emitGoto :: Label -> IRGenMonad ()
 emitGoto label = tell [IRGoto label]
