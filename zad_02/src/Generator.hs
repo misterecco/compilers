@@ -44,36 +44,81 @@ toIrItems vt = mapM_ (toIrItem (extractType vt))
 toIrItem :: IRType -> Item Position -> IRGenMonad ()
 toIrItem vt (NoInit _ (Ident ident)) = addVariable ident vt
 toIrItem vt (Init _ (Ident ident) expr) = do
-    addr <- toIrExpr expr
+    addr <- toIrExpr Nothing expr
     addVariable ident vt
     var <- getVariable ident
     emitCpy var addr
 
 toIrExprs :: [Expr Position] -> IRGenMonad [IRAddr]
-toIrExprs = mapM toIrExpr
+toIrExprs = mapM (toIrExpr Nothing)
 
-toIrExpr :: Expr Position -> IRGenMonad IRAddr
-toIrExpr (EVar _ (Ident ident)) = getVariable ident
-toIrExpr (ELitInt _ value) = return $ ImmInt value
-toIrExpr (ELitTrue _) = return $ ImmBool True
-toIrExpr (ELitFalse _) = return $ ImmBool False
-toIrExpr (EApp _ (Ident fun) exprs) = do
+toIrExpr :: Maybe (Label, Label) -> Expr Position -> IRGenMonad IRAddr
+toIrExpr _ (EVar _ (Ident ident)) = getVariable ident
+toIrExpr _ (ELitInt _ value) = return $ ImmInt value
+toIrExpr lbls (ELitTrue _) = case lbls of
+    Nothing -> return $ ImmBool True
+    Just (lTrue, _) -> do
+        emitGoto lTrue
+        return NoRet
+toIrExpr lbls (ELitFalse _) = case lbls of
+    Nothing -> return $ ImmBool False
+    Just (_, lFalse) -> do
+        emitGoto lFalse
+        return NoRet
+toIrExpr lbls (EApp _ (Ident fun) exprs) = do
     paramAddrs <- toIrExprs exprs
     funType <- getFunctionType fun
     addr <- freshTemp funType
     emitCall addr fun paramAddrs
-    return addr
-toIrExpr (EString _ value) = return $ ImmString value
-toIrExpr (Neg _ expr) = toSAssExpr IRNeg expr
-toIrExpr (Not _ expr) = toSAssExpr IRNot expr
-toIrExpr (EMul _ lexpr op rexpr) = toAssExpr (mulOpToIrOp op) lexpr rexpr
-toIrExpr (EAdd _ lexpr op rexpr) = toAssExpr (addOpToIrOp op) lexpr rexpr
+    case lbls of
+        Nothing -> return addr
+        Just (lTrue, lFalse) -> do
+            emitCmpJmp IREq addr (ImmBool True) lTrue lFalse
+            return NoRet
+toIrExpr _ (EString _ value) = return $ ImmString value
+toIrExpr _ (Neg _ expr) = toSAssExpr IRNeg expr
+toIrExpr lbls (Not _ expr) = case lbls of
+    Nothing -> toSAssExpr IRNot expr
+    Just (lTrue, lFalse) -> toIrExpr (Just (lFalse, lTrue)) expr
+toIrExpr _ (EMul _ lexpr op rexpr) = toAssExpr (mulOpToIrOp op) lexpr rexpr
+toIrExpr _ (EAdd _ lexpr op rexpr) = toAssExpr (addOpToIrOp op) lexpr rexpr
+toIrExpr lbls e@(ERel _ lexpr op rexpr) = case lbls of
+    Nothing -> toIrExprAddAssgmnt lbls e
+    Just (lTrue, lFalse) -> do
+        laddr <- toIrExpr Nothing lexpr
+        raddr <- toIrExpr Nothing rexpr
+        emitCmpJmp (relOpToIrCmp op) laddr raddr lTrue lFalse
+        return NoRet
+toIrExpr lbls e@(EAnd _ lexpr rexpr) = case lbls of
+    Nothing -> toIrExprAddAssgmnt lbls e
+    Just (lTrue, lFalse) -> do
+        lMid <- freshLabel
+        toIrExpr (Just (lMid, lFalse)) lexpr
+        emitLabel lMid
+        toIrExpr (Just (lTrue, lFalse)) rexpr
+        return NoRet
+toIrExpr lbls e@(EOr _ lexpr rexpr) = case lbls of
+    Nothing -> toIrExprAddAssgmnt lbls e
+    Just (lTrue, lFalse) -> do
+        lMid <- freshLabel
+        toIrExpr (Just (lTrue, lMid)) lexpr
+        emitLabel lMid
+        toIrExpr (Just (lTrue, lFalse)) rexpr
+        return NoRet
 
+toIrExprAddAssgmnt :: Maybe (Label, Label) -> Expr Position -> IRGenMonad IRAddr
+toIrExprAddAssgmnt _ e = do
+    lTrue <- freshLabel
+    lFalse <- freshLabel
+    toIrExpr (Just (lTrue, lFalse)) e
+    addr <- freshTemp IRBool
+    emitBoolAss addr lTrue lFalse
+    return addr
 
 toAssExpr :: IROp -> Expr Position -> Expr Position -> IRGenMonad IRAddr
 toAssExpr op lexpr rexpr = do
-    lexpAddr <- toIrExpr lexpr
-    rexpAddr <- toIrExpr rexpr
+    lexpAddr <- toIrExpr Nothing lexpr
+    rexpAddr <- toIrExpr Nothing rexpr
     let t = addrType lexpAddr
     addr <- freshTemp t
     emitAss op addr lexpAddr rexpAddr
@@ -81,11 +126,30 @@ toAssExpr op lexpr rexpr = do
 
 toSAssExpr :: IRSOp -> Expr Position -> IRGenMonad IRAddr
 toSAssExpr op expr = do
-    exprAddr <- toIrExpr expr
+    exprAddr <- toIrExpr Nothing expr
     let t = addrType exprAddr
     addr <- freshTemp t
     emitSAss op addr exprAddr
     return addr
+
+emitGoto :: Label -> IRGenMonad ()
+emitGoto label = tell [IRGoto label]
+
+emitCmpJmp :: IRCmp -> IRAddr -> IRAddr -> Label -> Label -> IRGenMonad ()
+emitCmpJmp cmp laddr raddr lTrue lFalse =
+    tell [IRIf cmp laddr raddr lTrue lFalse]
+
+emitBoolAss :: IRAddr -> Label -> Label -> IRGenMonad ()
+emitBoolAss addr lTrue lFalse = do
+    lEnd <- freshLabel
+    tell 
+        [ IRLabel lTrue
+        , IRCpy addr (ImmBool True)
+        , IRGoto lEnd
+        , IRLabel lFalse
+        , IRCpy addr (ImmBool False)
+        , IRGoto lEnd
+        , IRLabel lEnd ]
 
 emitAss :: IROp -> IRAddr -> IRAddr -> IRAddr -> IRGenMonad ()
 emitAss op dst laddr raddr = tell [IRAss op dst laddr raddr]

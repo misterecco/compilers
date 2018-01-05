@@ -29,7 +29,7 @@ data IRInstr
     | IRComp IRCmp IRAddr IRAddr IRAddr
     | IRSAss IRSOp IRAddr IRAddr
     | IRCall IRAddr Label [IRAddr]
-    | IRIf IRCmp IRAddr IRAddr Label
+    | IRIf IRCmp IRAddr IRAddr Label Label
     | IRGoto Label
     | IRCpy IRAddr IRAddr
     | IRLabel Label
