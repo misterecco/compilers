@@ -9,7 +9,8 @@ executable latc_x86_64
     base >= 4, 
     mtl, 
     array, 
-    containers, 
+    containers,
+    ordered-containers, 
     process >= 1.2.0.0
   other-modules:      
     AbsLatte, 
@@ -19,6 +20,8 @@ executable latc_x86_64
     ParLatte, 
     PreState,
     PrintLatte,
-    Preprocessor
+    Preprocessor,
+    CompState,
+    Generator
   default-language:   Haskell2010  
   main-is:            Compiler.hs

@@ -217,7 +217,7 @@ checkReturnFunctions :: [TopDef Position] -> PreprocessorMonad ()
 checkReturnFunctions = mapM_ checkReturnFunction
 
 checkReturnFunction :: TopDef Position -> PreprocessorMonad ()
-checkReturnFunction (FnDef pos retType ident args block) =
+checkReturnFunction (FnDef pos retType ident _args block) =
     case retType of
         Void _ -> return ()
         _ -> unless (checkReturnBlock block) $ throwError $ errorWithPosition pos
@@ -235,7 +235,7 @@ checkReturnStmts (st:sts) = checkReturnStmt st || checkReturnStmts sts
 
 checkReturnStmt :: Stmt Position -> Bool
 checkReturnStmt (BStmt _ block) = checkReturnBlock block
-checkReturnStmt s@(CondElse _ expr stmt1 stmt2) = 
+checkReturnStmt (CondElse _ _ stmt1 stmt2) = 
     checkReturnStmt stmt1 && checkReturnStmt stmt2
 checkReturnStmt (Ret _ _) = True
 checkReturnStmt _ = False

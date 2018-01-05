@@ -13,6 +13,7 @@ import AsmLatte
 import AbsLatte
 import PrintLatte
 import Preprocessor
+import Generator
 
 import ErrM
 
@@ -70,6 +71,9 @@ runCompiler path s = let ts = myLexer s in case pProgram ts of
       Right tr -> do 
         hPutStrLn stderr "OK"
         showTree tr 
+        let instrs = generateIR tr
+        hPrint stderr $ show instrs
+        exitSuccess
     -- h <- openFile path WriteMode    
     -- mapM_ (hPutStrLn h) (compile tree)
     -- hClose h
