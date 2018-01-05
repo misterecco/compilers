@@ -5,16 +5,26 @@ import PreState ( Position )
 
 import Control.Monad.State
 import Control.Monad.Writer
-import Data.Map
+import Data.Map hiding (map)
+import Data.List ( intercalate )
 
 type Label = String
 type Name = String
 
 data IRVar = IRVar Name Integer IRType
-    deriving (Eq, Show)
+    deriving Eq
+
+instance Show IRVar where
+    show (IRVar name int irtype) = show irtype ++ " " ++ name ++ " " ++ show int
 
 data IRType = IRInt | IRStr | IRBool | IRVoid
-    deriving (Eq, Show)
+    deriving Eq
+
+instance Show IRType where
+    show IRInt = "int"
+    show IRStr = "string"
+    show IRBool = "bool"
+    show IRVoid = "void"
 
 data IRAddr 
     = ImmInt Integer 
@@ -22,11 +32,17 @@ data IRAddr
     | ImmBool Bool 
     | NoRet
     | Indirect IRVar
-    deriving (Eq, Show)
+    deriving Eq
+
+instance Show IRAddr where
+    show (ImmInt val) = "Literal " ++ show val
+    show (ImmString val) = "Literal " ++ val
+    show (ImmBool val) = "Literal " ++ show val
+    show NoRet = "NoRet"
+    show (Indirect val) = "Indirect " ++ show val
 
 data IRInstr 
     = IRAss IROp IRAddr IRAddr IRAddr 
-    | IRComp IRCmp IRAddr IRAddr IRAddr
     | IRSAss IRSOp IRAddr IRAddr
     | IRCall IRAddr Label [IRAddr]
     | IRIf IRCmp IRAddr IRAddr Label Label
@@ -34,16 +50,46 @@ data IRInstr
     | IRCpy IRAddr IRAddr
     | IRLabel Label
     | IRRet IRAddr
-    deriving Show
+
+instance Show IRInstr where
+    show (IRAss op dst l r) = 
+        show dst ++ " := " ++ show l ++ " " ++ show op ++ " " ++ show r
+    show (IRSAss op dst r) =
+        show dst ++ " := " ++ show op ++ " " ++ show r    
+    show (IRCall dst fun args) =
+        show dst ++ " := " ++ fun ++ "(" ++ showArgs args ++ ")"
+    show (IRIf op l r lTrue lFalse) =
+        "if " ++ show l ++ " " ++ show op ++ " " ++ show r
+        ++ " then " ++ lTrue ++ " else " ++ lFalse
+    show (IRGoto lbl) = "goto " ++ lbl
+    show (IRCpy dst src) = show dst ++ " := " ++ show src
+    show (IRLabel lbl) = lbl ++ ":"
+    show (IRRet addr) = "return " ++ show addr
 
 data IRCmp = IRGt | IRLt | IRGe | IRLe | IREq | IRNe
-    deriving Show
 
-data IROp = IRAdd | IRSub | IRMul | IRDiv | IRMod | IRAnd | IROr
-    deriving Show
+instance Show IRCmp where
+    show IRGt = ">"
+    show IRLt = "<"
+    show IRGe = ">="
+    show IRLe = "<="
+    show IREq = "=="
+    show IRNe = "!="
+
+data IROp = IRAdd | IRSub | IRMul | IRDiv | IRMod
+
+instance Show IROp where
+    show IRAdd = "+"
+    show IRSub = "-"
+    show IRMul = "*"
+    show IRDiv = "/"
+    show IRMod = "%"
 
 data IRSOp = IRNeg | IRNot
-    deriving Show
+
+instance Show IRSOp where
+    show IRNeg = "-"
+    show IRNot = "!"
 
 data CompState = CS {
     nextTemp :: Integer,
@@ -54,6 +100,24 @@ data CompState = CS {
 }
 
 type IRGenMonad =  StateT CompState (Writer [IRInstr])
+
+local :: (CompState -> CompState) -> IRGenMonad a -> IRGenMonad a
+local modState comp = do
+    initState@(CS _ _ bl vars funs) <- get
+    let localState = modState initState
+    put localState
+    result <- comp
+    CS nt nl _ _ _ <- get
+    put $ CS nt nl bl vars funs
+    return result
+
+enterBlock :: CompState -> CompState
+enterBlock (CS nv nl bl vars funs) =
+    CS nv nl (bl+1) vars funs
+
+
+showArgs :: Show a => [a] -> String
+showArgs args = intercalate ", " (map show args)
 
 builtInFunctions :: Map Label IRType
 builtInFunctions = fromList 
@@ -103,11 +167,6 @@ addArgs = mapM_ addArg
 
 addArg :: Arg Position -> IRGenMonad ()
 addArg (Arg _ vt (Ident ident)) = addVariable ident (extractType vt)
-
-enterBlock :: CompState -> IRGenMonad CompState
-enterBlock (CS nv nl bl vars funs) =
-    return $ CS nv nl (bl+1) vars funs
-
 
 addFunction :: TopDef Position -> IRGenMonad ()
 addFunction (FnDef _ fnType (Ident ident) _ _) = do

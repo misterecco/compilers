@@ -72,7 +72,7 @@ runCompiler path s = let ts = myLexer s in case pProgram ts of
         hPutStrLn stderr "OK"
         showTree tr 
         let instrs = generateIR tr
-        mapM_ (hPrint stderr . show) instrs
+        mapM_ (hPrint stderr) instrs
         exitSuccess
     -- h <- openFile path WriteMode    
     -- mapM_ (hPutStrLn h) (compile tree)

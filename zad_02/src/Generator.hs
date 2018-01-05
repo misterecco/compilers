@@ -2,7 +2,7 @@ module Generator where
 
 import AbsLatte
 import CompState
-import PreState ( Position, local )
+import PreState ( Position )
 
 import Control.Monad.State
 import Control.Monad.Writer
