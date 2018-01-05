@@ -2,6 +2,7 @@ module IRGen where
 
 import AbsLatte
 import GenState
+import IRDef
 import PreState ( Position )
 
 import Control.Monad.State
