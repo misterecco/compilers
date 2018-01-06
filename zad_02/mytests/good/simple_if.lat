@@ -1,0 +1,9 @@
+int main() {
+    int x = 0;
+    if (x > 1) {
+        printInt(10);
+    } else {
+        printInt(20);
+    }
+    return 0;
+}

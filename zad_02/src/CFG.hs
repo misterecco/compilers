@@ -6,18 +6,20 @@ import Control.Monad.State
 import Data.List ( intercalate )
 import Data.Map hiding ( map )
 
+type Phi = Map IRAddr [(Label, IRAddr)]
 
 data CFGBlock = B {
-    phi :: Map IRAddr IRAddr,
+    blockPhi :: Phi,
     instructions :: [IRInstr],
     nextBlocks :: [Label],
     prevBlocks :: [Label]
 }
 
 instance Show CFGBlock where
-    show (B _phi instrs nb pb) = unlines 
+    show (B phi instrs nb pb) = unlines 
         [ "Before: " ++ intercalate ", " pb
         , "After: " ++ intercalate ", " nb
+        , "Phi: " ++ show (toList phi)
         , "Instructions: "
         , unlines (map show instrs) ]
 
