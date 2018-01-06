@@ -91,7 +91,14 @@ toIrItems :: Type Position -> [Item Position] -> IRGenMonad ()
 toIrItems vt = mapM_ (toIrItem (extractType vt))
 
 toIrItem :: IRType -> Item Position -> IRGenMonad ()
-toIrItem vt (NoInit _ (Ident ident)) = addVariable ident vt
+toIrItem vt (NoInit _ (Ident ident)) = do
+    addVariable ident vt
+    var <- getVariable ident
+    case vt of
+        IRInt -> emitCpy var (ImmInt 0)
+        IRStr -> emitCpy var (ImmString "")
+        IRBool -> emitCpy var (ImmBool False)
+        _ -> return ()
 toIrItem vt (Init _ (Ident ident) expr) = do
     addr <- toIrExpr Nothing expr
     addVariable ident vt
