@@ -105,14 +105,6 @@ extractType (Str _) = IRStr
 extractType (Bool _) = IRBool
 extractType _ = IRVoid
 
-addrType :: IRAddr -> IRType
-addrType (ImmInt _) = IRInt
-addrType (ImmString _) = IRStr
-addrType (ImmBool _) = IRBool
-addrType NoRet = IRVoid
-addrType (Indirect (IRVar _ _ t)) = t
-
-
 mulOpToIrOp :: MulOp Position -> IROp
 mulOpToIrOp (Times _) = IRMul
 mulOpToIrOp (Div _) = IRDiv

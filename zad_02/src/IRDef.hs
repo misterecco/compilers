@@ -6,13 +6,13 @@ type Label = String
 type Name = String
 
 data IRVar = IRVar Name Integer IRType
-    deriving Eq
+    deriving (Eq, Ord)
 
 instance Show IRVar where
     show (IRVar name int irtype) = show irtype ++ " " ++ name ++ " " ++ show int
 
 data IRType = IRInt | IRStr | IRBool | IRVoid
-    deriving Eq
+    deriving (Eq, Ord)
 
 instance Show IRType where
     show IRInt = "int"
@@ -26,7 +26,7 @@ data IRAddr
     | ImmBool Bool 
     | NoRet
     | Indirect IRVar
-    deriving Eq
+    deriving (Eq, Ord)
 
 instance Show IRAddr where
     show (ImmInt val) = "Literal " ++ show val
@@ -89,3 +89,10 @@ data IRSOp = IRNeg | IRNot
 instance Show IRSOp where
     show IRNeg = "-"
     show IRNot = "!"
+
+addrType :: IRAddr -> IRType
+addrType (ImmInt _) = IRInt
+addrType (ImmString _) = IRStr
+addrType (ImmBool _) = IRBool
+addrType NoRet = IRVoid
+addrType (Indirect (IRVar _ _ t)) = t

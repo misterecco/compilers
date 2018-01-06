@@ -28,8 +28,8 @@ data CFGState = CFGS {
 
 type CFGMonad = State CFGState
 
-initialState :: CFGState
-initialState = CFGS [] empty
+initialCFGState :: CFGState
+initialCFGState = CFGS [] empty
 
 addNewBlock :: Label -> [IRInstr] -> CFGMonad ()
 addNewBlock label instrs = do
@@ -103,4 +103,4 @@ createBlocks instrs = do
 
 
 generateCFG :: [IRInstr] -> CFGState
-generateCFG instrs = execState (createBlocks instrs) initialState
+generateCFG instrs = execState (createBlocks instrs) initialCFGState
