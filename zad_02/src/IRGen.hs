@@ -195,7 +195,7 @@ emitParams = mapM_ emitParam
 emitParam :: Arg Position -> IRGenMonad ()
 emitParam (Arg _ vt (Ident ident)) = do 
     bl <- getBlockLevel
-    tell [IRParam (IRVar ident bl (extractType vt))]
+    tell [IRParam (Indirect (IRVar ident bl (extractType vt)))]
 
 emitRet :: IRAddr -> IRGenMonad ()
 emitRet addr = tell [IRRet addr]

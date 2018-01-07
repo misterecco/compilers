@@ -44,7 +44,7 @@ data IRInstr
     | IRCpy IRAddr IRAddr
     | IRLabel Label
     | IRRet IRAddr
-    | IRParam IRVar
+    | IRParam IRAddr 
 
 instance Show IRInstr where
     show (IRAss op dst l r) = 

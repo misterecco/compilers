@@ -4,7 +4,7 @@ import IRDef
 
 import Control.Monad.State
 import Data.List ( intercalate )
-import Data.Map hiding ( map )
+import Data.Map hiding ( map, null )
 
 type Phi = Map IRAddr [(Label, IRAddr)]
 
@@ -77,7 +77,7 @@ cbHelper [] cb bo = do
     cbHelper [] [] bo
 cbHelper (i:is) cb bo = case i of
     IRLabel l -> do
-        when (length cb > 0) $ do
+        unless (null cb) $ do
             let instrs = reverse cb
             let (IRLabel lbl) = head instrs
             addNewBlock lbl instrs

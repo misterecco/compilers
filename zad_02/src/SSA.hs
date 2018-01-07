@@ -6,23 +6,22 @@ import CFG ( CFGBlock(..), CFGState(..), Phi )
 import Prelude hiding ( lookup )
 
 import Control.Monad.State
-import Control.Monad.Reader
-import Data.List ( (\\) )
-import Data.Map hiding ( map, (\\) )
+import Data.List ( (\\), nub )
+import Data.Map hiding ( (\\) )
 
 
 data SSAState = SSAS {
     blockOrder :: [Label],
     blocks :: Map Label CFGBlock,
     varMapping :: Map (Label, IRAddr) IRAddr,
-    visitedBlocks :: [Label],
-    nextVal :: Integer
+    nextVal :: Integer,
+    unknowns :: Map Label (Map IRAddr IRAddr)
 }
 
-type SSAMonad = StateT SSAState (Reader Phi)
+type SSAMonad = State SSAState
 
 initialSSAState :: CFGState -> SSAState
-initialSSAState (CFGS bo bl) = SSAS bo bl empty [] 0
+initialSSAState (CFGS bo bl) = SSAS bo bl empty 0 empty
 
 getBlockOrder :: SSAMonad [Label]
 getBlockOrder = do
@@ -31,8 +30,8 @@ getBlockOrder = do
 
 setBlock :: Label -> CFGBlock -> SSAMonad ()
 setBlock lbl bl = do
-    SSAS bo bs vm vb nv <- get
-    put $ SSAS bo (insert lbl bl bs) vm vb nv
+    SSAS bo bs vm nv un <- get
+    put $ SSAS bo (insert lbl bl bs) vm nv un
 
 getBlock :: Label -> SSAMonad CFGBlock
 getBlock lbl = do
@@ -41,131 +40,203 @@ getBlock lbl = do
 
 setMapping :: (Label, IRAddr) -> IRAddr -> SSAMonad ()
 setMapping v val = do
-    SSAS bo bl vm vb nv <- get
-    put $ SSAS bo bl (insert v val vm) vb nv
+    SSAS bo bl vm nv un <- get
+    put $ SSAS bo bl (insert v val vm) nv un
 
 getMapping :: (Label, IRAddr) -> SSAMonad (Maybe IRAddr)
 getMapping v = do
     SSAS _ _ vm _ _ <- get
     return $ lookup v vm
 
-isVisited :: Label -> SSAMonad Bool
-isVisited lbl = do
-    SSAS _ _ _ vb _ <- get
-    return $ lbl `elem` vb
-
-addVisited :: Label -> SSAMonad ()
-addVisited lbl = do
-    SSAS bo bl vm vb nv <- get
-    put $ SSAS bo bl vm (lbl:vb) nv
-
-freshVal :: IRType -> SSAMonad IRAddr
-freshVal t =
+freshVal :: IRAddr -> SSAMonad IRAddr
+freshVal addr = let t = addrType addr in
     if t == IRVoid then 
-        return NoRet else do
-            SSAS bo bl vm vb nv <- get
-            put $ SSAS bo bl vm vb (nv+1)
-            let name = "val-" ++ show nv
-            return $ Indirect (IRVar name 0 t)
+        return NoRet 
+    else do
+        SSAS bo bl vm nv un <- get
+        put $ SSAS bo bl vm (nv+1) un
+        let name = "val-" ++ show nv
+        return $ Indirect (IRVar name 0 t)
+
+setUnknowns :: Label -> [(IRAddr, IRAddr)] -> SSAMonad ()
+setUnknowns lbl vars = do
+    SSAS bo bl um nv un <- get
+    put $ SSAS bo bl um nv (insert lbl (fromList vars) un)
+
+getUnknowns :: Label -> SSAMonad (Map IRAddr IRAddr)
+getUnknowns lbl = do
+    SSAS _ _ _ _ un <- get
+    return $ un ! lbl
+
+addToPhi :: Label -> IRAddr -> [(Label, IRAddr)] -> SSAMonad ()
+addToPhi lbl var values = do
+    B phi is nb pb <- getBlock lbl
+    let newbl = B (insert var (nub values) phi) is nb pb
+    setBlock lbl newbl
 
 
-findMappings :: IRAddr -> [Label] -> [Label] -> SSAMonad [(Label, IRAddr)]
-findMappings _ _ [] = return []
-findMappings var vl (l:ls) = do
-    visited <- isVisited l
-    unless visited $ transformBlock l
+findMappings :: IRAddr -> [Label] -> [Label] -> Label -> SSAMonad [(Label, IRAddr)]
+findMappings _ _ [] _ = return []
+findMappings var vl (l:ls) lbl = do
     value <- getMapping (l, var)
     B _ _ _ pb <- getBlock l
     case value of
         Just val -> do
-            nextMappings <- findMappings var evl ls
-            return $ (l, val):nextMappings
-        Nothing -> findMappings var evl (ls ++ (pb \\ vl))
-    where evl = (l:vl)
+            nextMappings <- findMappings var evl ls lbl
+            return $ (lbl, val):nextMappings
+        Nothing -> findMappings var evl (ls ++ (pb \\ vl)) lbl
+    where evl = l:vl
+
+fm :: IRAddr -> [Label] -> [(Label, IRAddr)] -> SSAMonad [(Label, IRAddr)]
+fm _ [] acc = return acc
+fm var (l:ls) acc = do
+    values <- findMappings var [] [l] l
+    fm var ls (values ++ acc)
+
+findValue :: IRAddr -> Label -> Map IRAddr IRAddr -> SSAMonad IRAddr
+findValue v lbl unkn = 
+    if v `member` unkn then do
+        let var = unkn ! v
+        case var of 
+            Indirect _ -> do
+                B _ _ _ pb <- getBlock lbl
+                case pb of
+                    [pr] -> do
+                        prUnkns <- getUnknowns pr
+                        findValue v pr prUnkns
+                    _ -> do
+                        values <- fm var pb []
+                        case values of 
+                            [(_, val)] -> do
+                                setMapping (lbl, var) val
+                                return val
+                            _ -> do
+                                addToPhi lbl var values
+                                return var
+            _ -> return var
+    else return v
 
 
-findValue :: IRAddr -> Label -> Phi -> SSAMonad (IRAddr, Phi)
-findValue var lbl phi = 
-    case var of 
-        Indirect _ -> do
-            values <- findMappings var [] [lbl]
-            case values of 
-                [(_, val)] -> do
-                    setMapping (lbl, var) val
-                    return (val, phi)
-                _ -> do
-                    nv <- freshVal (addrType var)
-                    setMapping (lbl, var) nv
-                    return $ (nv, insert nv values phi)
-        _ -> return (var, phi)
+getValue :: IRAddr -> Label -> [(IRAddr, IRAddr)] -> SSAMonad (IRAddr, [(IRAddr, IRAddr)])
+getValue var lbl unkn = case var of
+    Indirect _ -> do
+        value <- getMapping (lbl, var)
+        case value of
+            Just val -> return (val, unkn)
+            Nothing -> do
+                newval <- freshVal var
+                setMapping (lbl, var) newval
+                return (newval, (newval, var):unkn)
+    _ -> return (var, unkn)
 
 
-trBl :: Label -> [IRInstr] -> [IRInstr] -> SSAMonad ()
-trBl lbl [] acc = do
+firstPass :: Label -> [IRInstr] -> [IRInstr] -> [(IRAddr, IRAddr)] -> SSAMonad ()
+firstPass lbl [] acc unkn = do
     let instrs = reverse acc
-    phi <- ask
-    B _ _ nb pb <- getBlock lbl
+    B phi _ nb pb <- getBlock lbl
+    setUnknowns lbl unkn
     setBlock lbl $ B phi instrs nb pb
-trBl lbl (i:is) acc = do
-    phi <- ask
+firstPass lbl (i:is) acc un = case i of
+    IRAss op dst larg rarg -> do
+        (lval, un1) <- getValue larg lbl un
+        (rval, un2) <- getValue rarg lbl un1
+        newval <- freshVal dst
+        setMapping (lbl, dst) newval
+        let newinstr = IRAss op newval lval rval
+        firstPass lbl is (newinstr:acc) un2
+    IRSAss op dst arg -> do
+        (argval, un1) <- getValue arg lbl un
+        newval <- freshVal dst
+        setMapping (lbl, dst) newval
+        let newinstr = IRSAss op newval argval
+        firstPass lbl is (newinstr:acc) un1
+    IRCall dst fun args -> do
+        (argvals, un2) <- foldM (\(a, p) ar -> do 
+            (a1, un1) <- getValue ar lbl p
+            return (a1:a, un1) ) ([], un) args
+        newval <- freshVal dst
+        setMapping (lbl, dst) newval
+        let newinstr = IRCall newval fun (reverse argvals)
+        unless (newval == NoRet) $ setMapping (lbl, dst) newval
+        firstPass lbl is (newinstr:acc) un2
+    IRIf cmp larg rarg lTrue lFalse -> do
+        (lval, un1) <- getValue larg lbl un
+        (rval, un2) <- getValue rarg lbl un1
+        let newinstr = IRIf cmp lval rval lTrue lFalse
+        firstPass lbl is (newinstr:acc) un2
+    IRGoto l -> firstPass lbl is (IRGoto l:acc) un
+    IRCpy dst arg -> do
+        (argval, un1) <- getValue arg lbl un
+        setMapping (lbl, dst) argval
+        firstPass lbl is acc un1
+    IRLabel l -> firstPass lbl is (IRLabel l:acc) un
+    IRRet arg -> do
+        (argval, un1) <- getValue arg lbl un
+        let newinstr = IRRet argval
+        firstPass lbl is (newinstr:acc) un1
+    IRParam arg -> do
+        setMapping (lbl, arg) arg
+        firstPass lbl is (IRParam arg:acc) un
+
+
+secondPass :: Label -> [IRInstr] -> [IRInstr] -> SSAMonad ()
+secondPass lbl [] acc = do
+    let instrs = reverse acc
+    B phi _ nb pb <- getBlock lbl
+    setUnknowns lbl []
+    setBlock lbl $ B phi instrs nb pb
+secondPass lbl (i:is) acc = do
+    unkn <- getUnknowns lbl
     case i of
         IRAss op dst larg rarg -> do
-            (lval, p1) <- findValue larg lbl phi
-            (rval, p2) <- findValue rarg lbl p1
-            newval <- freshVal (addrType dst)
-            setMapping (lbl, dst) newval
-            let newinstr = IRAss op newval lval rval
-            local (const p2) $ trBl lbl is (newinstr:acc)
+            lval <- findValue larg lbl unkn
+            rval <- findValue rarg lbl unkn
+            let newinstr = IRAss op dst lval rval
+            secondPass lbl is (newinstr:acc)
         IRSAss op dst arg -> do
-            (argval, p1) <- findValue arg lbl phi
-            newval <- freshVal (addrType dst)
-            setMapping (lbl, dst) newval
-            let newinstr = IRSAss op newval argval
-            local (const p1) $ trBl lbl is (newinstr:acc)
-        -- reminder: NoRet should not be added to mapping
+            argval <- findValue arg lbl unkn
+            let newinstr = IRSAss op dst argval
+            secondPass lbl is (newinstr:acc)
         IRCall dst fun args -> do
-            (argvals, p2) <- foldM (\(a, p) ar -> do 
-                (a1, p1) <- findValue ar lbl p
-                return ((a1:a), p1) ) ([], phi) args
-            newval <- freshVal (addrType dst)
-            let newinstr = IRCall newval fun (reverse argvals)
-            unless (newval == NoRet) $ setMapping (lbl, dst) newval
-            local (const p2) $ trBl lbl is (newinstr:acc) 
+            argvals <- foldM (\a ar -> do 
+                a1 <- findValue ar lbl unkn
+                return (a1:a) ) [] args
+            let newinstr = IRCall dst fun (reverse argvals)
+            secondPass lbl is (newinstr:acc) 
         IRIf cmp larg rarg lTrue lFalse -> do
-            (lval, p1) <- findValue larg lbl phi
-            (rval, p2) <- findValue rarg lbl p1
+            lval <- findValue larg lbl unkn
+            rval <- findValue rarg lbl unkn
             let newinstr = IRIf cmp lval rval lTrue lFalse
-            local (const p2) $ trBl lbl is (newinstr:acc)
-        IRGoto l -> trBl lbl is ((IRGoto l):acc)
+            secondPass lbl is (newinstr:acc)
+        IRGoto l -> secondPass lbl is (IRGoto l:acc)
         IRCpy dst arg -> do
-            (argval, p1) <- findValue arg lbl phi
+            argval <- findValue arg lbl unkn
             setMapping (lbl, dst) argval
-            local (const p1) $ trBl lbl is acc
-        IRLabel l -> trBl lbl is ((IRLabel l):acc) 
+            secondPass lbl is acc
+        IRLabel l -> secondPass lbl is (IRLabel l:acc) 
         IRRet arg -> do
-            (argval, p1) <- findValue arg lbl phi
+            argval <- findValue arg lbl unkn
             let newinstr = IRRet argval
-            local (const p1) $ trBl lbl is (newinstr:acc)       
-        IRParam var -> do
-            setMapping (lbl, Indirect var) (Indirect var)
-            trBl lbl is ((IRParam var):acc)
+            secondPass lbl is (newinstr:acc)       
+        IRParam arg -> secondPass lbl is (IRParam arg:acc)
 
 
+addPhi :: Label -> SSAMonad ()
+addPhi lbl = do
+    B _ is _ _ <- getBlock lbl
+    secondPass lbl is []
 
-
-transformBlock :: Label -> SSAMonad ()
-transformBlock lbl = do
-    visited <- isVisited lbl
-    unless visited $ do
-        addVisited lbl
-        B _ is nb _ <- getBlock lbl
-        trBl lbl is []
-        transformBlocks nb
-
+renumberVariables :: Label -> SSAMonad ()
+renumberVariables lbl = do
+    B _ is _ _ <- getBlock lbl
+    firstPass lbl is [] []
 
 transformBlocks :: [Label] -> SSAMonad ()
-transformBlocks = mapM_ transformBlock
+transformBlocks lbls = do
+    mapM_ renumberVariables lbls
+    mapM_ addPhi lbls
+
 
 convertToSSA :: CFGState -> CFGState
 convertToSSA st@(CFGS bo _) = CFGS nbo nbl where 
-    (SSAS nbo nbl _ _ _) = runReader (execStateT (transformBlocks bo) (initialSSAState st)) empty
+    (SSAS nbo nbl _ _ _) = execState (transformBlocks bo) (initialSSAState st)

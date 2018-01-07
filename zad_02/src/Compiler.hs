@@ -2,7 +2,7 @@ module Main where
   
 import Control.Monad
 import Data.List ( isSuffixOf )
-import Data.Map ( toList, (!) )
+import Data.Map ( (!) )
 import System.IO
 import System.Environment ( getArgs )
 import System.Exit ( exitFailure, exitSuccess )
@@ -88,12 +88,12 @@ runCompiler _path s = let ts = myLexer s in case pProgram ts of
 
 printCFGState :: CFGState -> IO ()
 printCFGState (CFGS ord bls) = do
-    hPrint stderr $ ord
+    hPrint stderr ord
     hPutStrLn stderr ""
     forM_ ord (\lbl -> do
         let bl = bls ! lbl
         hPutStrLn stderr $ "Block: " ++ lbl
-        hPrint stderr $ bl )
+        hPrint stderr bl )
 
 
 main :: IO ()
