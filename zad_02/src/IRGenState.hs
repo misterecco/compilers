@@ -1,4 +1,4 @@
-module GenState where
+module IRGenState where
 
 import AbsLatte
 import IRDef
@@ -56,7 +56,7 @@ freshTemp t =
         return NoRet else do
             CS nv nl bl vars funs <- get
             put $ CS (nv+1) nl bl vars funs
-            -- guaranteed not to clash with user input (vairable names)
+            -- guaranteed not to clash with user input (variable names)
             let name = "tmp-" ++ show nv
             addVariable name t
             getVariable name

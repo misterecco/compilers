@@ -1,12 +1,13 @@
 module SSA where
 
 import IRDef
-import CFG ( CFGBlock(..), CFGState(..), Phi )
+import CFG ( CFGBlock(..), CFGState(..) )
 
 import Prelude hiding ( lookup )
 
 import Control.Monad.State
 import Data.List ( (\\), nub )
+import Data.Maybe ( isNothing )
 import Data.Map hiding ( (\\) )
 
 
@@ -93,28 +94,41 @@ fm var (l:ls) acc = do
     values <- findMappings var [] [l] l
     fm var ls (values ++ acc)
 
-findValue :: IRAddr -> Label -> Map IRAddr IRAddr -> SSAMonad IRAddr
-findValue v lbl unkn = 
-    if v `member` unkn then do
-        let var = unkn ! v
-        case var of 
-            Indirect _ -> do
+findValueRec :: IRAddr -> IRAddr -> Label -> Bool -> SSAMonad IRAddr
+findValueRec var newvar lbl goUp = case var of
+    Indirect _ -> do
+        v <- getMapping (lbl, var)
+        if goUp || isNothing v then do
                 B _ _ _ pb <- getBlock lbl
                 case pb of
-                    [pr] -> do
-                        prUnkns <- getUnknowns pr
-                        findValue v pr prUnkns
+                    [pr] -> findValueRec var newvar pr False
                     _ -> do
-                        values <- fm var pb []
-                        case values of 
-                            [(_, val)] -> do
-                                setMapping (lbl, var) val
-                                return val
+                        vals <- fm var pb []
+                        case vals of
+                            [(_, value)] -> return value
                             _ -> do
-                                addToPhi lbl var values
-                                return var
-            _ -> return var
-    else return v
+                                addToPhi lbl newvar vals
+                                return newvar
+        else do
+            let Just val = v
+            return val
+    _ -> return var
+
+findValue :: IRAddr -> Label -> Map IRAddr IRAddr -> SSAMonad IRAddr
+findValue v lbl unkn =  case v of
+    Indirect _ -> 
+        if v `member` unkn then do
+            let var = unkn ! v
+            val <- findValueRec var v lbl True
+            unless (val == v) $ setMapping (lbl, v) val
+            setUnknowns lbl (toList $ delete v unkn)
+            return val
+        else do
+            val <- getMapping (lbl, v)
+            case val of
+                Nothing -> return v
+                Just value -> return value
+    _ -> return v
 
 
 getValue :: IRAddr -> Label -> [(IRAddr, IRAddr)] -> SSAMonad (IRAddr, [(IRAddr, IRAddr)])
@@ -212,7 +226,8 @@ secondPass lbl (i:is) acc = do
         IRCpy dst arg -> do
             argval <- findValue arg lbl unkn
             setMapping (lbl, dst) argval
-            secondPass lbl is acc
+            let newinstr = IRCpy dst argval
+            secondPass lbl is (newinstr:acc)
         IRLabel l -> secondPass lbl is (IRLabel l:acc) 
         IRRet arg -> do
             argval <- findValue arg lbl unkn

@@ -1,7 +1,7 @@
 module IRGen where
 
 import AbsLatte
-import GenState
+import IRGenState
 import IRDef
 import PreState ( Position )
 
