@@ -23,6 +23,7 @@ executable latc_x86_64
     Preprocessor,
     IRGenState,
     IRGen,
-    SSA
+    SSA,
+    IG
   default-language:   Haskell2010  
   main-is:            Compiler.hs

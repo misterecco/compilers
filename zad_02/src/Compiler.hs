@@ -14,6 +14,8 @@ import Preprocessor
 import IRGen
 import CFG
 import SSA
+import IG
+import IRDef ( Label )
 
 import ErrM
 
@@ -72,8 +74,10 @@ runCompiler _path s = let ts = myLexer s in case pProgram ts of
         -- mapM_ (hPrint stderr) instrs
         let cfgs = generateCFG instrs
         printCFGState cfgs
-        let ssas = convertToSSA cfgs
+        let ssas@(CFGS ord _) = convertToSSA cfgs
         printCFGState ssas
+        let igs = calculateLiveliness ssas
+        printLiveState ord igs
         exitSuccess
     -- h <- openFile path WriteMode    
     -- mapM_ (hPutStrLn h) (compile tree)
@@ -94,6 +98,17 @@ printCFGState (CFGS ord bls) = do
         let bl = bls ! lbl
         hPutStrLn stderr $ "Block: " ++ lbl
         hPrint stderr bl )
+
+
+printLiveState :: [Label] -> LiveState -> IO ()
+printLiveState ord (LS _ ins) = do
+    hPrint stderr ord
+    hPutStrLn stderr ""
+    forM_ ord (\lbl -> do
+        let inSet = ins ! lbl
+        hPutStrLn stderr $ "Block: " ++ lbl
+        hPrint stderr inSet 
+        hPutStrLn stderr "")
 
 
 main :: IO ()
