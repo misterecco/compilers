@@ -10,7 +10,6 @@ import Data.List ( (\\), nub )
 import Data.Maybe ( isNothing )
 import Data.Map hiding ( (\\) )
 
-
 data SSAState = SSAS {
     blockOrder :: [Label],
     blocks :: Map Label CFGBlock,
@@ -48,6 +47,11 @@ getMapping :: (Label, IRAddr) -> SSAMonad (Maybe IRAddr)
 getMapping v = do
     SSAS _ _ vm _ _ <- get
     return $ lookup v vm
+
+transformMapping :: ((Label, IRAddr) -> IRAddr -> IRAddr) -> SSAMonad ()
+transformMapping transFun = do
+    SSAS bo bl vm nv un <- get
+    put $ SSAS bo bl (mapWithKey transFun vm) nv un
 
 freshVal :: IRAddr -> SSAMonad IRAddr
 freshVal addr = let t = addrType addr in
@@ -115,20 +119,21 @@ findValueRec var newvar lbl goUp = case var of
     _ -> return var
 
 findValue :: IRAddr -> Label -> Map IRAddr IRAddr -> SSAMonad IRAddr
-findValue v lbl unkn =  case v of
+findValue addr lbl unkn = case addr of
     Indirect _ -> 
-        if v `member` unkn then do
-            let var = unkn ! v
-            val <- findValueRec var v lbl True
-            unless (val == v) $ setMapping (lbl, v) val
-            setUnknowns lbl (toList $ delete v unkn)
+        if addr `member` unkn then do
+            let var = unkn ! addr
+            val <- findValueRec var addr lbl True
+            unless (val == addr) $ setMapping (lbl, addr) val
+            transformMapping (\_ v -> if v == addr then val else v)
+            setUnknowns lbl (toList $ delete addr unkn)
             return val
         else do
-            val <- getMapping (lbl, v)
+            val <- getMapping (lbl, addr)
             case val of
-                Nothing -> return v
+                Nothing -> return addr
                 Just value -> return value
-    _ -> return v
+    _ -> return addr
 
 
 getValue :: IRAddr -> Label -> [(IRAddr, IRAddr)] -> SSAMonad (IRAddr, [(IRAddr, IRAddr)])

@@ -1,7 +1,7 @@
-module IG where
+module Live where
 
 import IRDef
-import CFG ( CFGBlock(..), CFGState(..) )
+import CFG ( CFGBlock(..), CFGState(..), Phi )
 
 import Control.Monad.State
 import Data.Map as M hiding ( foldr )
@@ -86,8 +86,25 @@ calcBlock lbl = do
     B _ instrs nb _ <- getBlock lbl
     nextIns <- mapM getLiveIn nb
     let outs = foldr S.union S.empty nextIns
-    ins <- calcInstrs (reverse instrs) outs
+    outsIncludingPhi <- foldM processBlock outs nb
+    ins <- calcInstrs (reverse instrs) outsIncludingPhi
     setLiveIn lbl ins
+    where
+        processBlock :: Set IRAddr -> Label -> LiveMonad (Set IRAddr)
+        processBlock acc l = do
+            B phi _ _ _ <- getBlock l
+            let x = foldrWithKey processKeyVal acc phi
+            return x
+        processKeyVal :: IRAddr -> [(Label, IRAddr)] -> Set IRAddr -> Set IRAddr
+        processKeyVal k v a = do
+            let a1 = S.delete k a
+            let a2 = foldr processAssignment a1 v
+            a2
+        processAssignment :: (Label, IRAddr) -> Set IRAddr -> Set IRAddr
+        processAssignment (src, addr) acc = case addr of
+            Indirect _ -> if lbl == src then S.insert addr acc else acc
+            _ -> acc
+
 
 
 calcAllBlocks :: [Label] -> LiveMonad ()

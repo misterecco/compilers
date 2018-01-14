@@ -14,7 +14,7 @@ import Preprocessor
 import IRGen
 import CFG
 import SSA
-import IG
+import Live
 import IRDef ( Label )
 
 import ErrM
