@@ -57,8 +57,8 @@ getBinaryOutputPath f =
 printUsage :: IO ()
 printUsage =
     mapM_ putStrLn [ "latc_x86_64 <path_to_input_file>"
-                    , "   note: input file should be located in a subdirectory"
-                    , "   and have an extension .lat" ]
+                   , "   note: input file should be located in a subdirectory"
+                   , "   and have an extension .lat" ]
 
 
 runCompiler :: FilePath -> String -> IO ()

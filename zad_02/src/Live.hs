@@ -40,6 +40,25 @@ setLiveIn lbl lives = do
     LS bl lm <- get
     put $ LS bl (M.insert lbl lives lm)
 
+getLiveOut :: Label -> LiveMonad (Set IRAddr)
+getLiveOut lbl = do
+    B _ _ nb _ <- getBlock lbl
+    nextIns <- mapM getLiveIn nb
+    let outs = foldr S.union S.empty nextIns
+    foldM processBlock outs nb
+    where
+        processBlock :: Set IRAddr -> Label -> LiveMonad (Set IRAddr)
+        processBlock acc l = do
+            B phi _ _ _ <- getBlock l
+            return $ foldrWithKey processKeyVal acc phi
+        processKeyVal :: IRAddr -> [(Label, IRAddr)] -> Set IRAddr -> Set IRAddr
+        processKeyVal k v a = do
+            let a1 = S.delete k a
+            foldr processAssignment a1 v
+        processAssignment :: (Label, IRAddr) -> Set IRAddr -> Set IRAddr
+        processAssignment (src, addr) acc = case addr of
+            Indirect _ -> if lbl == src then S.insert addr acc else acc
+            _ -> acc
 
 addAddr :: IRAddr -> Set IRAddr -> LiveMonad (Set IRAddr)
 addAddr addr set = case addr of
@@ -83,29 +102,10 @@ calcInstrs (i:is) outs = do
 
 calcBlock :: Label -> LiveMonad ()
 calcBlock lbl = do
-    B _ instrs nb _ <- getBlock lbl
-    nextIns <- mapM getLiveIn nb
-    let outs = foldr S.union S.empty nextIns
-    outsIncludingPhi <- foldM processBlock outs nb
-    ins <- calcInstrs (reverse instrs) outsIncludingPhi
+    B _ instrs _ _ <- getBlock lbl
+    outs <- getLiveOut lbl
+    ins <- calcInstrs (reverse instrs) outs
     setLiveIn lbl ins
-    where
-        processBlock :: Set IRAddr -> Label -> LiveMonad (Set IRAddr)
-        processBlock acc l = do
-            B phi _ _ _ <- getBlock l
-            let x = foldrWithKey processKeyVal acc phi
-            return x
-        processKeyVal :: IRAddr -> [(Label, IRAddr)] -> Set IRAddr -> Set IRAddr
-        processKeyVal k v a = do
-            let a1 = S.delete k a
-            let a2 = foldr processAssignment a1 v
-            a2
-        processAssignment :: (Label, IRAddr) -> Set IRAddr -> Set IRAddr
-        processAssignment (src, addr) acc = case addr of
-            Indirect _ -> if lbl == src then S.insert addr acc else acc
-            _ -> acc
-
-
 
 calcAllBlocks :: [Label] -> LiveMonad ()
 calcAllBlocks bls = do
