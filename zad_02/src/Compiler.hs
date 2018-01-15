@@ -16,6 +16,7 @@ import CFG
 import SSA
 import Live
 import IRDef ( Label )
+import CodeGen
 
 import ErrM
 
@@ -37,7 +38,7 @@ runFile f = do
 runASM :: FilePath -> IO ()
 runASM path = do
     let binPath = getBinaryOutputPath path
-    callCommand $ "gas -o " ++ binPath ++ " " ++ path
+    callCommand $ "gcc -o " ++ binPath ++ " " ++ path
 
 
 getTestOutputPath :: FilePath -> FilePath
@@ -62,26 +63,27 @@ printUsage =
 
 
 runCompiler :: FilePath -> String -> IO ()
-runCompiler _path s = let ts = myLexer s in case pProgram ts of
+runCompiler path s = let ts = myLexer s in case pProgram ts of
   Ok tree -> do 
     let nt = preprocess tree
     case nt of
-      Left e -> exitWithError e
-      Right tr -> do 
-        hPutStrLn stderr "OK"
-        showTree tr 
-        let instrs = generateIR tr
-        -- mapM_ (hPrint stderr) instrs
-        let cfgs = generateCFG instrs
-        printCFGState cfgs
-        let ssas@(CFGS ord _) = convertToSSA cfgs
-        printCFGState ssas
-        let igs = calculateLiveliness ssas
-        printLiveState ord igs
-        exitSuccess
-    -- h <- openFile path WriteMode    
-    -- mapM_ (hPutStrLn h) (compile tree)
-    -- hClose h
+        Left e -> exitWithError e
+        Right tr -> do 
+            hPutStrLn stderr "OK"
+            showTree tr 
+            let instrs = generateIR tr
+            -- mapM_ (hPrint stderr) instrs
+            let cfgs = generateCFG instrs
+            printCFGState cfgs
+            let ssas@(CFGS ord _) = convertToSSA cfgs
+            printCFGState ssas
+            let igs = calculateLiveliness ssas
+            printLiveState ord igs
+            let asmCode = generateAsm igs ord
+            h <- openFile path WriteMode    
+            mapM_ (hPutStrLn h) asmCode 
+            hClose h
+            exitSuccess            
   Bad e -> exitWithError e
   where 
     exitWithError er = do

@@ -48,6 +48,11 @@ getBlock lbl = do
     LS bls _ _ <- get
     return $ bls ! lbl
 
+setBlock :: Label -> CFGBlock -> LiveMonad ()
+setBlock lbl block = do
+    LS bls lm ebl <- get
+    put $ LS (M.insert lbl block bls) lm ebl
+
 getLiveMap :: LiveMonad (Map Label (Set IRAddr))
 getLiveMap = do
     LS _ lm _ <- get
@@ -199,8 +204,26 @@ calculateInstrLives :: [Label] -> LiveMonad ()
 calculateInstrLives = mapM_ extCalcBlock
 
 
+remUnreachInstrs :: [IRInstr] -> [IRInstr] -> LiveMonad [IRInstr]
+remUnreachInstrs [] acc = return $ reverse acc
+remUnreachInstrs (i:is) acc = case i of
+    IRRet _ -> remUnreachInstrs [] (i:acc)
+    _ -> remUnreachInstrs is (i:acc)
+
+remUnreachInstrsInBlock :: Label -> LiveMonad ()
+remUnreachInstrsInBlock lbl = do
+    B p instrs nb pb <- getBlock lbl
+    newInstrs <- remUnreachInstrs instrs []
+    setBlock lbl $ B p newInstrs nb pb
+    return ()
+
+remUnreachInstrsInBlocks :: [Label] -> LiveMonad ()
+remUnreachInstrsInBlocks = mapM_ remUnreachInstrsInBlock
+
+
 calculateLiveIns :: [Label] -> LiveMonad ()
 calculateLiveIns bls = do
+    remUnreachInstrsInBlocks bls
     calculateBlocksLiveIns bls
     calculateInstrLives bls
 

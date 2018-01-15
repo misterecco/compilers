@@ -24,6 +24,7 @@ executable latc_x86_64
     IRGenState,
     IRGen,
     SSA,
-    Live
+    Live,
+    CodeGen
   default-language:   Haskell2010  
   main-is:            Compiler.hs
