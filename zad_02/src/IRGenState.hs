@@ -67,7 +67,7 @@ freshLabel = do
     CS nv nl bl vars funs <- get
     put $ CS nv (nl+1) bl vars funs
     -- guaranteed not to clash with user input (function names)    
-    return $ show nl
+    return $ ".lbl_" ++ show nl
 
 
 addVariable :: Name -> IRType -> IRGenMonad ()

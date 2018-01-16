@@ -81,7 +81,7 @@ runCompiler path s = let ts = myLexer s in case pProgram ts of
             printLiveState ord igs
             let asmCode = generateAsm igs ord
             h <- openFile path WriteMode    
-            mapM_ (hPutStrLn h) asmCode 
+            mapM_ (hPrint h) asmCode 
             hClose h
             exitSuccess            
   Bad e -> exitWithError e

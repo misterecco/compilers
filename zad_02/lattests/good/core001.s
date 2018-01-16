@@ -1,1 +1,2 @@
-Hello
+pushq a
+.string "Hello"
