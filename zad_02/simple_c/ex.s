@@ -1,33 +1,33 @@
 	.file	"ex.c"
-	.section	.rodata
+	.section	.rodata.str1.1,"aMS",@progbits,1
 .LC0:
+	.string	"Please enter some text"
+.LC1:
 	.string	"User input: "
-	.text
+	.section	.text.startup,"ax",@progbits
+	.p2align 4,,15
 	.globl	main
 	.type	main, @function
 main:
-.LFB0:
+.LFB11:
 	.cfi_startproc
-	pushq	%rbp
-	.cfi_def_cfa_offset 16
-	.cfi_offset 6, -16
-	movq	%rsp, %rbp
-	.cfi_def_cfa_register 6
-	subq	$16, %rsp
-	movl	$0, %eax
-	call	readString@PLT
-	movq	%rax, -8(%rbp)
 	leaq	.LC0(%rip), %rdi
+	subq	$8, %rsp
+	.cfi_def_cfa_offset 16
 	call	printString@PLT
-	movq	-8(%rbp), %rax
+	xorl	%eax, %eax
+	call	readString@PLT
+	leaq	.LC1(%rip), %rdi
+	movq	%rax, %rsi
+	call	__concat__@PLT
 	movq	%rax, %rdi
 	call	printString@PLT
-	movl	$0, %eax
-	leave
-	.cfi_def_cfa 7, 8
+	xorl	%eax, %eax
+	addq	$8, %rsp
+	.cfi_def_cfa_offset 8
 	ret
 	.cfi_endproc
-.LFE0:
+.LFE11:
 	.size	main, .-main
-	.ident	"GCC: (GNU) 7.2.1 20171128"
+	.ident	"GCC: (GNU) 7.2.1 20171224"
 	.section	.note.GNU-stack,"",@progbits

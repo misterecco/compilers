@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void printInt(int x) {
     printf("%d\n", x);
@@ -29,4 +30,14 @@ char* readString() {
     buffer[size-1] = '\0';
 
     return buffer;
+}
+
+char* __concat__(char* lhs, char* rhs) {
+    int len = strlen(lhs) + strlen(rhs) + 1;
+    char* result = malloc(sizeof(char) * len);
+
+    strcpy(result, lhs);
+    strcat(result, rhs);
+
+    return result;
 }
