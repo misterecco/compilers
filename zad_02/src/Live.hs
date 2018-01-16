@@ -125,7 +125,7 @@ calcInstr instr outs = case instr of
         remAddr dst o1
     IRLabel _ -> return outs
     IRRet arg -> addAddr arg outs
-    IRParam arg -> addAddr arg outs
+    IRParam arg _ -> addAddr arg outs
 
 calcInstrs :: [IRInstr] -> Set IRAddr -> LiveMonad (Set IRAddr)
 calcInstrs [] ins = return ins
@@ -182,7 +182,7 @@ extCalcInstr instr lives = case instr of
         extRemAddr dst l1
     IRLabel _ -> return lives
     IRRet arg -> extAddAddr arg lives
-    IRParam arg -> extAddAddr arg lives
+    IRParam arg _ -> extAddAddr arg lives
 
 extCalcInstrs :: [IRInstr] -> LiveMap -> [(IRInstr, LiveMap)] -> LiveMonad [(IRInstr, LiveMap)]
 extCalcInstrs [] _lives acc = return acc

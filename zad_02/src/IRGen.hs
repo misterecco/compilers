@@ -190,12 +190,14 @@ toSAssExpr op expr = do
 
 
 emitParams :: [Arg Position] -> IRGenMonad ()
-emitParams = mapM_ emitParam
+emitParams params = do
+    let naturals = 1: map (+1) naturals
+    mapM_ emitParam (zip params naturals)
 
-emitParam :: Arg Position -> IRGenMonad ()
-emitParam (Arg _ vt (Ident ident)) = do 
+emitParam :: (Arg Position, Integer) -> IRGenMonad ()
+emitParam ((Arg _ vt (Ident ident)), int) = do 
     bl <- getBlockLevel
-    tell [IRParam (Indirect (IRVar ident bl (extractType vt)))]
+    tell [IRParam (Indirect (IRVar ident bl (extractType vt))) int]
 
 emitRet :: IRAddr -> IRGenMonad ()
 emitRet addr = tell [IRRet addr]

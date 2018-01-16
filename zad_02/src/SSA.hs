@@ -193,9 +193,9 @@ firstPass lbl (i:is) acc un = case i of
         (argval, un1) <- getValue arg lbl un
         let newinstr = IRRet argval
         firstPass lbl is (newinstr:acc) un1
-    IRParam arg -> do
+    IRParam arg _ -> do
         setMapping (lbl, arg) arg
-        firstPass lbl is (IRParam arg:acc) un
+        firstPass lbl is (i:acc) un
 
 
 secondPass :: Label -> [IRInstr] -> [IRInstr] -> SSAMonad ()
@@ -238,7 +238,7 @@ secondPass lbl (i:is) acc = do
             argval <- findValue arg lbl unkn
             let newinstr = IRRet argval
             secondPass lbl is (newinstr:acc)       
-        IRParam arg -> secondPass lbl is (IRParam arg:acc)
+        IRParam _ _ -> secondPass lbl is (i:acc)
 
 
 addPhi :: Label -> SSAMonad ()

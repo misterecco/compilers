@@ -44,7 +44,7 @@ data IRInstr
     | IRCpy IRAddr IRAddr
     | IRLabel Label
     | IRRet IRAddr
-    | IRParam IRAddr 
+    | IRParam IRAddr Integer
 
 instance Show IRInstr where
     show (IRAss op dst l r) = 
@@ -60,7 +60,7 @@ instance Show IRInstr where
     show (IRCpy dst src) = show dst ++ " := " ++ show src
     show (IRLabel lbl) = lbl ++ ":"
     show (IRRet addr) = "return " ++ show addr
-    show (IRParam addr) = "parameter " ++ show addr
+    show (IRParam addr _) = "parameter " ++ show addr
 
 showArgs :: Show a => [a] -> String
 showArgs args = intercalate ", " (map show args)

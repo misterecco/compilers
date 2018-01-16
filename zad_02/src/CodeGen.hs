@@ -62,7 +62,7 @@ instance Show AsmInstr where
         Jle lbl        -> "  jle " ++ lbl
         Jge lbl        -> "  jge " ++ lbl
         Push mem       -> "  pushq " ++ show mem
-        Pop mem        -> "  pushq " ++ show mem
+        Pop mem        -> "  popq " ++ show mem
         Section str    -> ".section " ++ str
         Str str        -> "  .string " ++ show str
         Leave          -> "  leave"
@@ -108,7 +108,7 @@ initialCGState :: LiveState -> [Label] -> CGState
 initialCGState (LS _ lm bl) ord = do
     let initMss = M.fromList $ Prelude.map (\lbl -> (lbl, initialMs (bl ! lbl))) ord
     let initMainMs = initMss ! "main"
-    CGS bl lm M.empty 0 initMainMs initMss M.empty (-8)
+    CGS bl lm M.empty 0 initMainMs initMss M.empty (-48)
 
 getBlock :: Label -> CGMonad LiveBlock
 getBlock lbl = do
@@ -184,7 +184,7 @@ freshStackLoc = do
 resetStackLoc :: CGMonad ()
 resetStackLoc = do
     CGS lb lm s2l nsl cms b2ms b2ims _ <- get
-    put $ CGS lb lm s2l nsl cms b2ms b2ims (-8)    
+    put $ CGS lb lm s2l nsl cms b2ms b2ims (-48)    
 
 getLocSize :: CGMonad Integer
 getLocSize = do
@@ -294,32 +294,77 @@ getMemoryLoc var lm = case var of
                 else getFreshRegister var
             Just mem -> return mem
 
+intLiteral :: Integer -> CGMem
+intLiteral int = Lit $ "$" ++ show int
 
 genInstrs :: (IRInstr, LiveMap) -> CGMonad ()
 genInstrs (i, lm) = do
     expireOld lm
     case i of
+        -- IRAss op dst larg rarg -> if dst `M.notMember` lm 
+        --     then return ()
+        --     else case dst of
+        IRSAss op dst arg -> if dst `M.notMember` lm
+            then return ()
+            else do
+                dstMem <- getMemoryLoc dst lm
+                argMem <- getMemoryLoc arg lm
+                case op of
+                    IRNot -> addInstrs [ Mov dstMem (intLiteral 1)
+                                       , Sub dstMem argMem ]
+                    IRNeg -> addInstrs [ Mov dstMem argMem
+                                       , Imul dstMem (intLiteral (-1)) ]
+        IRGoto lbl -> addInstr $ Jmp lbl
+        IRCpy dst src -> if dst `M.notMember` lm
+            then return ()
+            else do
+                dstMem <- getMemoryLoc dst lm
+                argMem <- getMemoryLoc src lm
+                addInstr $ Mov dstMem argMem
         IRLabel lbl -> addInstr $ Lbl lbl
-        IRRet addr -> case addr of
-            NoRet -> addInstrs [Leave, Ret]
-            _ -> return ()
-                -- do
-                -- mem <- getMemoryLoc addr
-                -- addInstrs [Leave, Ret, Mov (Reg RAX) mem]
+        IRRet addr -> do
+            let popReg = popRegisters nonvolatileRegisters
+            case addr of
+                NoRet -> addInstrs $ popReg ++ [ Leave
+                                                , Ret]
+                _     -> do
+                            mem <- getMemoryLoc addr lm
+                            addInstrs $ popReg ++ [ Mov (Reg RAX) mem 
+                                                    , Leave
+                                                    , Ret ]
+        IRParam var int -> if var `M.notMember` lm
+            then return ()
+            else do
+                let mem = case int of
+                            1 -> Reg RDI
+                            2 -> Reg RSI
+                            3 -> Reg RDX
+                            4 -> Reg RCX
+                            5 -> Reg R8
+                            6 -> Reg R9
+                            _ -> do
+                                let offset = (int - 6) * 8 + 16
+                                Mem RBP offset
+                addVarMapping var mem
         _ -> return ()
 
-intLiteral :: Integer -> CGMem
-intLiteral int = Lit $ "$" ++ show int
+pushRegisters :: [CGReg] -> [AsmInstr]
+pushRegisters = Prelude.map (\reg -> Push (Reg reg))
+
+popRegisters :: [CGReg] -> [AsmInstr]
+popRegisters = (Prelude.map (\reg -> Pop (Reg reg))) . reverse
 
 addFuncPrologue :: Label -> CGMonad ()
 addFuncPrologue lbl = do
     CGMS r2v v2m is gc <- getMs lbl
     ls <- getLocSize
+    let sb = ls + 40
     let (funcLbl:restInstr) = reverse gc
+    let pushRegs = pushRegisters nonvolatileRegisters
     let newGc = [ funcLbl 
                 , Push (Reg RBP)
-                , Mov (Reg RBP) (Reg RSP)
-                , Sub (Reg RSP) (intLiteral ls) ] ++ restInstr
+                , Mov (Reg RBP) (Reg RSP) ] ++ pushRegs ++
+                (Sub (Reg RSP) (intLiteral sb)):restInstr
     setMs lbl $ CGMS r2v v2m is (reverse newGc)
 
 firstPassOnBlock :: Label -> CGMonad ()
