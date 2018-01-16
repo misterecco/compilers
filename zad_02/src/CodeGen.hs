@@ -42,31 +42,33 @@ data AsmInstr
     | Leave
     | Ret
     | Global Label
+    | Lbl Label
     deriving (Eq, Ord)
 
 instance Show AsmInstr where
     show i = case i of
-        Mov dst src -> "movq " ++ show src ++ ", " ++ show dst
-        Add dst src -> "addq " ++ show src ++ ", " ++ show dst
-        Sub dst src -> "subq " ++ show src ++ ", " ++ show dst
-        Imul dst src -> "imulq " ++ show src ++ ", " ++ show dst
-        Idiv reg -> "idivq " ++ show reg
-        Cdq -> "cdqq"
-        Call lbl -> "call " ++ lbl
-        Xchg larg rarg -> "xchgq " ++ show larg ++ ", " ++ show rarg
-        Cmp larg rarg -> "cmpq " ++ show larg ++ ", " ++ show rarg
-        Jmp lbl -> "jmp " ++ lbl
-        Jg lbl -> "jg " ++ lbl
-        Jl lbl -> "jl " ++ lbl
-        Jle lbl -> "jle " ++ lbl
-        Jge lbl -> "jge " ++ lbl
-        Push mem -> "pushq " ++ show mem
-        Pop mem -> "pushq " ++ show mem
-        Section str -> ".section " ++ str
-        Str str -> ".string " ++ show str
-        Leave -> "leave"
-        Ret -> "ret"
-        Global lbl -> ".globl " ++ lbl
+        Mov dst src    -> "  movq " ++ show src ++ ", " ++ show dst
+        Add dst src    -> "  addq " ++ show src ++ ", " ++ show dst
+        Sub dst src    -> "  subq " ++ show src ++ ", " ++ show dst
+        Imul dst src   -> "  imulq " ++ show src ++ ", " ++ show dst
+        Idiv reg       -> "  idivq " ++ show reg
+        Cdq            -> "  cdqq"
+        Call lbl       -> "  call " ++ lbl
+        Xchg larg rarg -> "  xchgq " ++ show larg ++ ", " ++ show rarg
+        Cmp larg rarg  -> "  cmpq " ++ show larg ++ ", " ++ show rarg
+        Jmp lbl        -> "  jmp " ++ lbl
+        Jg lbl         -> "  jg " ++ lbl
+        Jl lbl         -> "  jl " ++ lbl
+        Jle lbl        -> "  jle " ++ lbl
+        Jge lbl        -> "  jge " ++ lbl
+        Push mem       -> "  pushq " ++ show mem
+        Pop mem        -> "  pushq " ++ show mem
+        Section str    -> ".section " ++ str
+        Str str        -> "  .string " ++ show str
+        Leave          -> "  leave"
+        Ret            -> "  ret"
+        Global lbl     -> ".globl " ++ lbl
+        Lbl lbl        -> lbl ++ ":"
 
 
 data CGMachineState = CGMS {
@@ -296,10 +298,29 @@ getMemoryLoc var lm = case var of
 genInstrs :: (IRInstr, LiveMap) -> CGMonad ()
 genInstrs (i, lm) = do
     expireOld lm
-    return ()
-    -- case i of
-        -- IRAss op dst larg rarg -> return ()
+    case i of
+        IRLabel lbl -> addInstr $ Lbl lbl
+        IRRet addr -> case addr of
+            NoRet -> addInstrs [Leave, Ret]
+            _ -> return ()
+                -- do
+                -- mem <- getMemoryLoc addr
+                -- addInstrs [Leave, Ret, Mov (Reg RAX) mem]
+        _ -> return ()
 
+intLiteral :: Integer -> CGMem
+intLiteral int = Lit $ "$" ++ show int
+
+addFuncPrologue :: Label -> CGMonad ()
+addFuncPrologue lbl = do
+    CGMS r2v v2m is gc <- getMs lbl
+    ls <- getLocSize
+    let (funcLbl:restInstr) = reverse gc
+    let newGc = [ funcLbl 
+                , Push (Reg RBP)
+                , Mov (Reg RBP) (Reg RSP)
+                , Sub (Reg RSP) (intLiteral ls) ] ++ restInstr
+    setMs lbl $ CGMS r2v v2m is (reverse newGc)
 
 firstPassOnBlock :: Label -> CGMonad ()
 firstPassOnBlock lbl = do
@@ -338,14 +359,26 @@ firstPass (b:bs) visited
     | otherwise            = do
         resetStackLoc    
         v1 <- firstPassOnFunc (S.singleton b) visited
-        -- TODO: add func prologue
+        addFuncPrologue b
         firstPass bs v1
+
+
+collectCode :: Label -> CGMonad [AsmInstr]
+collectCode lbl = do
+    CGMS _ _ _ gc <- getMs lbl
+    return $ reverse gc
+
+collectAllCode :: [Label] -> CGMonad [AsmInstr]
+collectAllCode = foldM (\acc lbl -> do
+    code <- collectCode lbl
+    return $ acc ++ code) []
 
 
 genCode :: [Label] -> CGMonad [AsmInstr]
 genCode ord = do
     firstPass ord S.empty
-    return [Push (Lit "a"), Str "Hello"]
+    -- TODO: second pass
+    collectAllCode ord
 
 generateAsm :: LiveState -> [Label] -> [AsmInstr]
 generateAsm ls ord = evalState (genCode ord) (initialCGState ls ord)
