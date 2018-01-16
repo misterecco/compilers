@@ -108,13 +108,13 @@ validateExpr (EAdd pos lexpr op rexpr) = case op of
         validateIntExpr pos rexpr
 validateExpr (ERel pos lexpr op rexpr) = case op of
     (EQU _) -> do
-        validatePairOneOf pos lexpr rexpr[NInt, NBool, NStr]
+        validatePairOneOf pos lexpr rexpr [NInt, NBool, NStr]
         return NBool
     (NE _) -> do
-        validatePairOneOf pos lexpr rexpr[NInt, NBool, NStr]
+        validatePairOneOf pos lexpr rexpr [NInt, NBool, NStr]
         return NBool
     _ -> do
-        validatePairOneOf pos lexpr rexpr[NInt, NStr]
+        validatePairOneOf pos lexpr rexpr [NInt, NStr]
         return NBool
 validateExpr (EAnd pos lexpr rexpr) = do
     validateBoolExpr pos lexpr

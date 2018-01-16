@@ -35,6 +35,8 @@ data AsmInstr
     | Jl Label
     | Jle Label 
     | Jge Label
+    | Jeq Label
+    | Jne Label
     | Push CGMem
     | Pop CGMem
     | Section String
@@ -46,27 +48,29 @@ data AsmInstr
     deriving (Eq, Ord)
 
 instance Show AsmInstr where
-    show i = case i of
-        Mov dst src    -> "  movq " ++ show src ++ ", " ++ show dst
-        Add dst src    -> "  addq " ++ show src ++ ", " ++ show dst
-        Sub dst src    -> "  subq " ++ show src ++ ", " ++ show dst
-        Imul dst src   -> "  imulq " ++ show src ++ ", " ++ show dst
-        Idiv reg       -> "  idivq " ++ show reg
-        Cdq            -> "  cdqq"
-        Call lbl       -> "  call " ++ lbl
-        Xchg larg rarg -> "  xchgq " ++ show larg ++ ", " ++ show rarg
-        Cmp larg rarg  -> "  cmpq " ++ show larg ++ ", " ++ show rarg
-        Jmp lbl        -> "  jmp " ++ lbl
-        Jg lbl         -> "  jg " ++ lbl
-        Jl lbl         -> "  jl " ++ lbl
-        Jle lbl        -> "  jle " ++ lbl
-        Jge lbl        -> "  jge " ++ lbl
-        Push mem       -> "  pushq " ++ show mem
-        Pop mem        -> "  popq " ++ show mem
+    show i = case i of  
+        Mov dst src    -> "    movq " ++ show src ++ ", " ++ show dst
+        Add dst src    -> "    addq " ++ show src ++ ", " ++ show dst
+        Sub dst src    -> "    subq " ++ show src ++ ", " ++ show dst
+        Imul dst src   -> "    imulq " ++ show src ++ ", " ++ show dst
+        Idiv reg       -> "    idivq " ++ show reg
+        Cdq            -> "    cdqq"
+        Call lbl       -> "    call " ++ lbl
+        Xchg larg rarg -> "    xchgq " ++ show rarg ++ ", " ++ show larg
+        Cmp larg rarg  -> "    cmpq " ++ show rarg ++ ", " ++ show larg
+        Jmp lbl        -> "    jmp " ++ lbl
+        Jg lbl         -> "    jg " ++ lbl
+        Jl lbl         -> "    jl " ++ lbl
+        Jle lbl        -> "    jle " ++ lbl
+        Jge lbl        -> "    jge " ++ lbl
+        Jeq lbl        -> "    je " ++ lbl
+        Jne lbl        -> "    jne " ++ lbl
+        Push mem       -> "    pushq " ++ show mem
+        Pop mem        -> "    popq " ++ show mem
         Section str    -> ".section " ++ str
-        Str str        -> "  .string " ++ show str
-        Leave          -> "  leave"
-        Ret            -> "  ret"
+        Str str        -> "    .string " ++ show str
+        Leave          -> "    leave"
+        Ret            -> "    ret"
         Global lbl     -> ".globl " ++ lbl
         Lbl lbl        -> lbl ++ ":"
 
@@ -100,6 +104,9 @@ nonvolatileRegisters = [RBX, R12, R13, R14, R15]
 
 volatileRegisters :: [CGReg]
 volatileRegisters = [RDI, RSI, RCX, R8, R9, R10, R11]
+
+paramRegisters :: [CGReg]
+paramRegisters = [RDI, RSI, RDX, RCX, R8, R9]
 
 initialMs :: LiveBlock -> CGMachineState
 initialMs (LB _phi instrs _nb _pb) = CGMS M.empty M.empty instrs []
@@ -297,13 +304,44 @@ getMemoryLoc var lm = case var of
 intLiteral :: Integer -> CGMem
 intLiteral int = Lit $ "$" ++ show int
 
+callStringFunction :: Label -> LiveMap -> IRAddr -> IRAddr -> CGMonad ()
+callStringFunction lbl lm larg rarg = do
+    preserveRegisters lm
+    prepareRegisterArgs [larg, rarg] lm
+    addInstr $ Call "__concat__"
+    restoreRegisters lm
+
 genInstrs :: (IRInstr, LiveMap) -> CGMonad ()
 genInstrs (i, lm) = do
     expireOld lm
     case i of
-        -- IRAss op dst larg rarg -> if dst `M.notMember` lm 
-        --     then return ()
-        --     else case dst of
+        IRAss op dst larg rarg -> if dst `M.notMember` lm 
+            then return ()
+            else case addrType dst of
+                IRStr -> do
+                    callStringFunction "__concat__" lm larg rarg
+                    dstMem <- getMemoryLoc dst lm
+                    addInstr $ Mov dstMem (Reg RAX)
+                IRInt -> do
+                    dstMem <- getMemoryLoc dst lm
+                    largMem <- getMemoryLoc larg lm
+                    rargMem <- getMemoryLoc rarg lm
+                    case op of
+                        IRAdd -> addInstrs [ Mov dstMem largMem
+                                           , Add dstMem rargMem ]
+                        IRSub -> addInstrs [ Mov dstMem largMem
+                                           , Sub dstMem rargMem ]
+                        IRMul -> addInstrs [ Mov dstMem largMem
+                                           , Imul dstMem rargMem ]
+                        IRDiv -> addInstrs [ Mov (Reg RAX) largMem
+                                           , Cdq
+                                           , Idiv rargMem
+                                           , Mov dstMem (Reg RAX) ]
+                        IRMod -> addInstrs [ Mov (Reg RAX) largMem
+                                           , Cdq
+                                           , Idiv rargMem
+                                           , Mov dstMem (Reg RDX) ]
+                _ -> return ()
         IRSAss op dst arg -> if dst `M.notMember` lm
             then return ()
             else do
@@ -314,6 +352,36 @@ genInstrs (i, lm) = do
                                        , Sub dstMem argMem ]
                     IRNeg -> addInstrs [ Mov dstMem argMem
                                        , Imul dstMem (intLiteral (-1)) ]
+        IRCall dst func args -> do
+            let n = toInteger (length args)
+            preserveRegisters lm
+            pushRestArgs (drop 6 args) lm
+            prepareRegisterArgs (take 6 args) lm
+            addInstr $ Call func
+            popRestArgs n
+            restoreRegisters lm
+            if dst == NoRet || dst `M.notMember` lm
+                then return ()
+                else do
+                    dstMem <- getMemoryLoc dst lm
+                    addInstr $ Mov dstMem (Reg RAX)
+        IRIf cmp larg rarg lTrue lFalse -> do
+            case addrType larg of
+                IRStr -> do
+                    callStringFunction "__strcmp__" lm larg rarg
+                    addInstr $ Cmp (Reg RAX) (intLiteral 0)
+                _ -> do
+                    largMem <- getMemoryLoc larg lm
+                    rargMem <- getMemoryLoc rarg lm
+                    addInstr $ Cmp largMem rargMem
+            case cmp of
+                IRGt -> addInstr $ Jg lTrue
+                IRLt -> addInstr $ Jl lTrue
+                IRGe -> addInstr $ Jge lTrue
+                IRLe -> addInstr $ Jle lTrue
+                IREq -> addInstr $ Jeq lTrue
+                IRNe -> addInstr $ Jne lTrue
+            addInstr $ Jmp lFalse  
         IRGoto lbl -> addInstr $ Jmp lbl
         IRCpy dst src -> if dst `M.notMember` lm
             then return ()
@@ -329,8 +397,8 @@ genInstrs (i, lm) = do
                                                 , Ret]
                 _     -> do
                             mem <- getMemoryLoc addr lm
-                            addInstrs $ popReg ++ [ Mov (Reg RAX) mem 
-                                                    , Leave
+                            addInstrs $ (Mov (Reg RAX) mem):popReg ++ 
+                                                    [ Leave
                                                     , Ret ]
         IRParam var int -> if var `M.notMember` lm
             then return ()
@@ -346,13 +414,55 @@ genInstrs (i, lm) = do
                                 let offset = (int - 6) * 8 + 16
                                 Mem RBP offset
                 addVarMapping var mem
-        _ -> return ()
+
 
 pushRegisters :: [CGReg] -> [AsmInstr]
 pushRegisters = Prelude.map (\reg -> Push (Reg reg))
 
 popRegisters :: [CGReg] -> [AsmInstr]
 popRegisters = (Prelude.map (\reg -> Pop (Reg reg))) . reverse
+
+prepareRegisterArgs :: [IRAddr] -> LiveMap -> CGMonad ()
+prepareRegisterArgs args lm = mapM_ (\(arg, reg) -> do
+    argMem <- getMemoryLoc arg lm
+    addInstr $ Mov (Reg reg) argMem) (zip args paramRegisters)
+
+pushRestArgs :: [IRAddr] -> LiveMap -> CGMonad ()
+pushRestArgs args lm = do
+    let n = toInteger $ length args
+    if n == 0 
+        then return ()
+        else do
+            mapM_ (\arg -> do
+                argMem <- getMemoryLoc arg lm
+                addInstr $ Push argMem) (reverse args)
+            if n `mod` 2 == 0 
+                then return ()
+                else addInstr $ Sub (Reg RSP) (intLiteral 8)
+
+popRestArgs :: Integer -> CGMonad ()
+popRestArgs n = if n <= 6 
+    then return ()
+    else do
+        let alignedN = if n `mod` 2 == 0 then n-6 else n-5
+        let sub = 8 * alignedN
+        addInstr $ Add (Reg RSP) (intLiteral sub)
+
+getActiveVolatileRegs :: LiveMap -> CGMonad [CGReg]
+getActiveVolatileRegs lm = do
+    CGMS r2v _ _ _ <- getCurrentMs
+    return $ Prelude.filter (\reg -> 
+            reg `M.member` r2v && (r2v ! reg) `M.member` lm) volatileRegisters
+
+preserveRegisters :: LiveMap -> CGMonad ()
+preserveRegisters lm = do
+    regs <- getActiveVolatileRegs lm
+    addInstrs $ pushRegisters regs
+
+restoreRegisters :: LiveMap -> CGMonad ()
+restoreRegisters lm = do
+    regs <- getActiveVolatileRegs lm
+    addInstrs $ popRegisters regs
 
 addFuncPrologue :: Label -> CGMonad ()
 addFuncPrologue lbl = do

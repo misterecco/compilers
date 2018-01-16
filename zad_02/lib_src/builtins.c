@@ -6,7 +6,7 @@ void printInt(int x) {
     printf("%d\n", x);
 }
 
-void printString(char* str) {
+void printString(const char* str) {
     printf("%s\n", str);
 }
 
@@ -15,9 +15,9 @@ void error() {
     exit(1);
 }
 
-int readInt() {
-    int x;
-    scanf("%d", &x);
+long long readInt() {
+    long long x;
+    scanf("%lld", &x);
 
     return x;
 }
@@ -32,7 +32,7 @@ char* readString() {
     return buffer;
 }
 
-char* __concat__(char* lhs, char* rhs) {
+char* __concat__(const char* lhs, const char* rhs) {
     int len = strlen(lhs) + strlen(rhs) + 1;
     char* result = malloc(sizeof(char) * len);
 
@@ -40,4 +40,8 @@ char* __concat__(char* lhs, char* rhs) {
     strcat(result, rhs);
 
     return result;
+}
+
+int __strcmp__(const char* lhs, const char* rhs) {
+    return strcmp(lhs, rhs);
 }
