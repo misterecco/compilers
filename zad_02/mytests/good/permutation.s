@@ -7,7 +7,9 @@ main:
     pushq %R14
     pushq %R15
     subq $-8, %RSP
-    cmpq $10, $10
+    call readInt
+    movq %RAX, %RBX
+    cmpq $10, %RBX
     jg .lbl_0
     jmp .lbl_1
 .lbl_0:

@@ -8,7 +8,7 @@ import Prelude hiding ( lookup )
 import Control.Monad.State
 import Data.List ( (\\), nub )
 import Data.Maybe ( isNothing )
-import Data.Map hiding ( (\\) )
+import Data.Map as M hiding ( (\\) ) 
 
 data SSAState = SSAS {
     blockOrder :: [Label],
@@ -52,6 +52,14 @@ transformMapping :: ((Label, IRAddr) -> IRAddr -> IRAddr) -> SSAMonad ()
 transformMapping transFun = do
     SSAS bo bl vm nv un <- get
     put $ SSAS bo bl (mapWithKey transFun vm) nv un
+
+transformPhi :: ((Label, IRAddr) -> (Label, IRAddr)) -> SSAMonad ()
+transformPhi valTrans = do
+    ord <- getBlockOrder
+    forM_ ord $ \lbl -> do
+        B phi is nb pb <- getBlock lbl
+        let newPhi = M.map (\mapping -> Prelude.map valTrans mapping) phi
+        setBlock lbl $ B newPhi is nb pb
 
 freshVal :: IRAddr -> SSAMonad IRAddr
 freshVal addr = let t = addrType addr in
@@ -126,6 +134,7 @@ findValue addr lbl unkn = case addr of
             val <- findValueRec var addr lbl True
             unless (val == addr) $ setMapping (lbl, addr) val
             transformMapping (\_ v -> if v == addr then val else v)
+            transformPhi (\(l, v) -> if v == addr then (l, val) else (l, v))
             setUnknowns lbl (toList $ delete addr unkn)
             return val
         else do
@@ -187,7 +196,8 @@ firstPass lbl (i:is) acc un = case i of
     IRCpy dst arg -> do
         (argval, un1) <- getValue arg lbl un
         setMapping (lbl, dst) argval
-        firstPass lbl is acc un1
+        let newinstr = IRCpy dst argval
+        firstPass lbl is (newinstr:acc) un1
     IRLabel l -> firstPass lbl is (IRLabel l:acc) un
     IRRet arg -> do
         (argval, un1) <- getValue arg lbl un
@@ -231,8 +241,8 @@ secondPass lbl (i:is) acc = do
         IRCpy dst arg -> do
             argval <- findValue arg lbl unkn
             setMapping (lbl, dst) argval
-            let newinstr = IRCpy dst argval
-            secondPass lbl is (newinstr:acc)
+            -- let newinstr = IRCpy dst argval
+            secondPass lbl is acc
         IRLabel l -> secondPass lbl is (IRLabel l:acc) 
         IRRet arg -> do
             argval <- findValue arg lbl unkn
