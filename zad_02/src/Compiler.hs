@@ -103,16 +103,16 @@ printCFGState (CFGS ord bls) = do
 
 
 printLiveState :: [Label] -> LiveState -> IO ()
-printLiveState ord (LS _ ins ebls) = do
+printLiveState ord (LS bls ins ebls) = do
     hPrint stderr ord
     hPutStrLn stderr ""
     forM_ ord (\lbl -> do
         let inSet = ins ! lbl
-        let extBlock = ebls ! lbl
+        let extBlock = bls ! lbl
         hPutStrLn stderr $ "Block: " ++ lbl
         hPutStrLn stderr "In set:"
         hPrint stderr inSet 
-        hPutStrLn stderr "Instructions with liveliness:"
+        hPutStrLn stderr "Instructions:"
         hPrint stderr extBlock        
         hPutStrLn stderr "")
 

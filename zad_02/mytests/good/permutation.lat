@@ -1,0 +1,21 @@
+int main() {
+    int a, b, x, y, z;
+
+    x = 10;
+
+    if (x > 10) {
+        y = x;
+        z = x;
+    } else {
+        y = 10;
+        z = 5;
+    }
+
+    a = y;
+    b = z;
+
+    printInt(a);
+    printInt(b);
+
+    return 0;
+}
