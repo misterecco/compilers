@@ -58,6 +58,7 @@ toIrStmt (Cond _ expr stmt) = do
     _ <- toIrExpr (Just (lTrue, lFalse)) expr
     emitLabel lTrue
     local enterBlock $ toIrStmt stmt
+    emitGoto lFalse    
     emitLabel lFalse
 toIrStmt (CondElse _ expr sTrue sFalse) = do
     lTrue <- freshLabel
@@ -109,7 +110,12 @@ toIrExprs :: [Expr Position] -> IRGenMonad [IRAddr]
 toIrExprs = mapM (toIrExpr Nothing)
 
 toIrExpr :: Maybe (Label, Label) -> Expr Position -> IRGenMonad IRAddr
-toIrExpr _ (EVar _ (Ident ident)) = getVariable ident
+toIrExpr lbls (EVar _ (Ident ident)) = case lbls of
+    Nothing -> getVariable ident
+    Just (lTrue, lFalse) -> do
+        addr <- getVariable ident
+        emitCmpJmp IREq addr (ImmBool True) lTrue lFalse
+        return NoRet
 toIrExpr _ (ELitInt _ value) = return $ ImmInt value
 toIrExpr lbls (ELitTrue _) = case lbls of
     Nothing -> return $ ImmBool True

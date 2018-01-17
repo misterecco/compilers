@@ -27,15 +27,19 @@ main:
     movq %RAX, %RBX
     movq %RBX, %RDI
     call printInt
+    movq $1, %RDI
+    movq $10, %R12
     jmp .lbl_1
 .lbl_0:
+    movq %RBX, %RDI
+    imulq %R12, %RDI
     movq %R12, %RBX
-    imulq %RDI, %RBX
-    movq %RDI, %R12
-    subq $1, %R12
+    subq $1, %RBX
+    movq %RBX, %R12
     jmp .lbl_1
 .lbl_1:
-    cmpq $0, %RBX
+    movq %RDI, %RBX
+    cmpq $0, %R12
     jg .lbl_0
     jmp .lbl_2
 .lbl_2:
@@ -68,15 +72,19 @@ fac:
     pushq %R14
     pushq %R15
     subq $-8, %RSP
+    movq %RDI, %R12
+    movq $1, %RDI
     jmp .lbl_4
 .lbl_3:
+    movq %RBX, %RDI
+    imulq %R12, %RDI
     movq %R12, %RBX
-    imulq %RDI, %RBX
-    movq %RDI, %R12
-    subq $1, %R12
+    subq $1, %RBX
+    movq %RBX, %R12
     jmp .lbl_4
 .lbl_4:
-    cmpq $0, %RBX
+    movq %RDI, %RBX
+    cmpq $0, %R12
     jg .lbl_3
     jmp .lbl_5
 .lbl_5:
@@ -97,6 +105,7 @@ rfac:
     pushq %R14
     pushq %R15
     subq $-8, %RSP
+    movq %RDI, %RBX
     cmpq $0, %RDI
     je .lbl_6
     jmp .lbl_7
@@ -110,14 +119,14 @@ rfac:
     leave
     ret
 .lbl_7:
-    movq %R12, %RBX
-    subq $1, %RBX
-    movq %RBX, %RDI
+    movq %RBX, %R12
+    subq $1, %R12
+    movq %R12, %RDI
     call rfac
     movq %RAX, %RDI
-    movq %R12, %RBX
-    imulq %RDI, %RBX
-    movq %RBX, %RAX
+    movq %RBX, %R12
+    imulq %RDI, %R12
+    movq %R12, %RAX
     popq %R15
     popq %R14
     popq %R13
@@ -135,6 +144,7 @@ mfac:
     pushq %R14
     pushq %R15
     subq $-8, %RSP
+    movq %RDI, %RBX
     cmpq $0, %RDI
     je .lbl_9
     jmp .lbl_10
@@ -148,14 +158,14 @@ mfac:
     leave
     ret
 .lbl_10:
-    movq %R12, %RBX
-    subq $1, %RBX
-    movq %RBX, %RDI
+    movq %RBX, %R12
+    subq $1, %R12
+    movq %R12, %RDI
     call nfac
     movq %RAX, %RDI
-    movq %R12, %RBX
-    imulq %RDI, %RBX
-    movq %RBX, %RAX
+    movq %RBX, %R12
+    imulq %RDI, %R12
+    movq %R12, %RAX
     popq %R15
     popq %R14
     popq %R13
@@ -173,18 +183,19 @@ nfac:
     pushq %R14
     pushq %R15
     subq $-8, %RSP
+    movq %RDI, %RBX
     cmpq $0, %RDI
     jne .lbl_12
     jmp .lbl_13
 .lbl_12:
-    movq %R12, %RBX
-    subq $1, %RBX
-    movq %RBX, %RDI
+    movq %RBX, %R12
+    subq $1, %R12
+    movq %R12, %RDI
     call mfac
     movq %RAX, %RDI
-    movq %R12, %RBX
-    imulq %RDI, %RBX
-    movq %RBX, %RAX
+    movq %RDI, %R12
+    imulq %RBX, %R12
+    movq %R12, %RAX
     popq %R15
     popq %R14
     popq %R13
@@ -212,10 +223,10 @@ ifac:
     pushq %R15
     subq $-8, %RSP
     movq $1, %RDI
-    movq %RBX, %RSI
+    movq %RDI, %RSI
     call ifac2f
     movq %RAX, %R12
-    movq %RBX, %RAX
+    movq %R12, %RAX
     popq %R15
     popq %R14
     popq %R13
@@ -232,6 +243,9 @@ ifac2f:
     pushq %R14
     pushq %R15
     subq $-8, %RSP
+    movq %RDI, %R12
+    movq %RSI, %RBX
+    movq %RDI, %RBX
     cmpq %RSI, %RDI
     je .lbl_15
     jmp .lbl_16
@@ -245,7 +259,7 @@ ifac2f:
     leave
     ret
 .lbl_16:
-    cmpq %R12, %RBX
+    cmpq %RBX, %R12
     jg .lbl_17
     jmp .lbl_18
 .lbl_17:
@@ -258,28 +272,28 @@ ifac2f:
     leave
     ret
 .lbl_18:
-    movq %R12, %RBX
-    addq %RDI, %RBX
-    movq %RSI, %RAX
+    movq %R12, %RDI
+    addq %RBX, %RDI
+    movq %RDI, %RAX
     cdqq
     idivq $2
-    movq %RAX, %RBX
+    movq %RAX, %RSI
+    pushq %RSI
+    movq %R12, %RDI
+    movq %RSI, %RSI
+    call ifac2f
+    popq %RSI
+    movq %RAX, %RDI
+    movq %RSI, %R12
+    addq $1, %R12
     pushq %RDI
     movq %R12, %RDI
     movq %RBX, %RSI
     call ifac2f
     popq %RDI
     movq %RAX, %RSI
-    movq %R12, %RBX
-    addq $1, %RBX
-    pushq %RSI
-    movq %RBX, %RDI
-    movq %R12, %RSI
-    call ifac2f
-    popq %RSI
-    movq %RAX, %RDI
-    movq %R12, %RBX
-    imulq %RDI, %RBX
+    movq %RDI, %RBX
+    imulq %RSI, %RBX
     movq %RBX, %RAX
     popq %R15
     popq %R14
@@ -297,17 +311,26 @@ repStr:
     pushq %R14
     pushq %R15
     subq $-8, %RSP
+    movq %RDI, %R12
+    movq str_3, %R13
+    movq $0, %RDI
     jmp .lbl_20
 .lbl_19:
+    pushq %RDI
+    pushq %RSI
     movq %RBX, %RDI
     movq %R12, %RSI
     call __concat__
-    movq %RAX, %RDI
-    movq %RSI, %RBX
+    popq %RSI
+    popq %RDI
+    movq %RAX, %R13
+    movq %RDI, %RBX
     addq $1, %RBX
+    movq %RBX, %RDI
     jmp .lbl_20
 .lbl_20:
-    cmpq %R12, %RBX
+    movq %R13, %RBX
+    cmpq %RSI, %RDI
     jl .lbl_19
     jmp .lbl_21
 .lbl_21:
