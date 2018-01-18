@@ -10,8 +10,10 @@ main:
     call readInt
     movq %RAX, %RBX
     cmpq $10, %RBX
-    jg .lbl_0
+    jg .t_lbl_0
     jmp .lbl_1
+.t_lbl_0:
+    jmp .lbl_0
 .lbl_0:
     movq %RBX, %R12
     jmp .lbl_2

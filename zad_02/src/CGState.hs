@@ -87,6 +87,7 @@ data CGState = CGS {
     liveIn :: Map Label (Set IRAddr),
     strToLbl :: Map String Label,
     nextStrLbl :: Integer,
+    nextLbl :: Integer,
     currentMs :: CGMachineState,
     blockToMs :: Map Label CGMachineState,
     blockToInitialMs :: Map Label CGMachineState,
@@ -99,16 +100,16 @@ initialCGState :: LiveState -> [Label] -> CGState
 initialCGState (LS _ lm bl) ord = do
     let initMss = M.fromList $ Prelude.map (\lbl -> (lbl, initialMs (bl ! lbl))) ord
     let initMainMs = initMss ! "main"
-    CGS bl lm M.empty 0 initMainMs initMss M.empty (-48)
+    CGS bl lm M.empty 0 0 initMainMs initMss M.empty (-48)
 
 getBlock :: Label -> CGMonad LiveBlock
 getBlock lbl = do
-    CGS bls _ _ _ _ _ _ _ <- get
+    CGS bls _ _ _ _ _ _ _ _ <- get
     return $ bls ! lbl
 
 getLiveIn :: Label -> CGMonad (Set IRAddr)
 getLiveIn lbl = do
-    CGS _ lm _ _ _ _ _ _ <- get
+    CGS _ lm _ _ _ _ _ _ _ <- get
     return $ lm ! lbl
 
 
@@ -117,33 +118,40 @@ initialMs (LB _phi instrs _nb _pb) = CGMS M.empty M.empty instrs []
 
 freshStringLbl :: String -> CGMonad Label
 freshStringLbl str = do
-    CGS bl lm s2l nsl cms b2ms b2ims nloc <- get
+    CGS bl lm s2l nsl nl cms b2ms b2ims nloc <- get
     let newLbl = "str_" ++ show nsl
-    put $ CGS bl lm (M.insert str newLbl s2l) (nsl+1) cms b2ms b2ims nloc
+    put $ CGS bl lm (M.insert str newLbl s2l) (nsl+1) nl cms b2ms b2ims nloc
+    return newLbl
+
+freshLbl :: CGMonad Label
+freshLbl = do
+    CGS bl lm s2l nsl nl cms b2ms b2ims nloc <- get
+    let newLbl = ".t_lbl_" ++ show nl
+    put $ CGS bl lm s2l nsl (nl+1) cms b2ms b2ims nloc
     return newLbl
 
 getStringLbl :: String -> CGMonad Label
 getStringLbl str = do
-    CGS _ _ s2l _ _ _ _ _ <- get
+    CGS _ _ s2l _ _ _ _ _ _ <- get
     case M.lookup str s2l of
         Nothing -> freshStringLbl str
         Just lbl -> return lbl
 
 getCurrentMs :: CGMonad CGMachineState
 getCurrentMs = do
-    CGS _ _ _ _ cms _ _ _ <- get
+    CGS _ _ _ _ _ cms _ _ _ <- get
     return cms
 
 changeCurrentMs :: Label -> CGMonad ()
 changeCurrentMs lbl = do
     nextCurrentMs <- getMs lbl
-    CGS lb lm s2l nsl _ b2ms b2ims nloc <- get
-    put $ CGS lb lm s2l nsl nextCurrentMs b2ms b2ims nloc
+    CGS lb lm s2l nsl nl _ b2ms b2ims nloc <- get
+    put $ CGS lb lm s2l nsl nl nextCurrentMs b2ms b2ims nloc
 
 setCurrentMs :: CGMachineState -> CGMonad ()
 setCurrentMs cms = do
-    CGS lb lm s2l nsl _ b2ms b2ims nloc <- get
-    put $ CGS lb lm s2l nsl cms b2ms b2ims nloc
+    CGS lb lm s2l nsl nl _ b2ms b2ims nloc <- get
+    put $ CGS lb lm s2l nsl nl cms b2ms b2ims nloc
 
 saveCurrentMs :: Label -> CGMonad ()
 saveCurrentMs lbl = do
@@ -157,38 +165,38 @@ saveCurrentMsAsInitMs lbl = do
 
 getMs :: Label -> CGMonad CGMachineState
 getMs lbl = do
-    CGS _ _ _ _ _ b2ms _ _ <- get
+    CGS _ _ _ _ _ _ b2ms _ _ <- get
     return $ b2ms ! lbl
 
 setMs :: Label -> CGMachineState -> CGMonad ()
 setMs lbl ms = do
-    CGS lb lm s2l nsl cms b2ms b2ims nloc <- get
-    put $ CGS lb lm s2l nsl cms (M.insert lbl ms b2ms) b2ims nloc
+    CGS lb lm s2l nsl nl cms b2ms b2ims nloc <- get
+    put $ CGS lb lm s2l nsl nl cms (M.insert lbl ms b2ms) b2ims nloc
 
 getInitMs :: Label -> CGMonad CGMachineState
 getInitMs lbl = do
-    CGS _ _ _ _ _ _ b2ims _<- get
+    CGS _ _ _ _ _ _ _ b2ims _<- get
     return $ b2ims ! lbl
 
 setInitMs :: Label -> CGMachineState -> CGMonad ()
 setInitMs lbl ms = do
-    CGS lb lm s2l nsl cms b2ms b2ims nloc <- get
-    put $ CGS lb lm s2l nsl cms b2ms (M.insert lbl ms b2ims) nloc
+    CGS lb lm s2l nsl nl cms b2ms b2ims nloc <- get
+    put $ CGS lb lm s2l nsl nl cms b2ms (M.insert lbl ms b2ims) nloc
 
 freshStackLoc :: CGMonad CGMem
 freshStackLoc = do
-    CGS lb lm s2l nsl cms b2ms b2ims nloc <- get
-    put $ CGS lb lm s2l nsl cms b2ms b2ims (nloc-8)
+    CGS lb lm s2l nsl nl cms b2ms b2ims nloc <- get
+    put $ CGS lb lm s2l nsl nl cms b2ms b2ims (nloc-8)
     return $ Mem RBP nloc
 
 resetStackLoc :: CGMonad ()
 resetStackLoc = do
-    CGS lb lm s2l nsl cms b2ms b2ims _ <- get
-    put $ CGS lb lm s2l nsl cms b2ms b2ims (-48)    
+    CGS lb lm s2l nsl nl cms b2ms b2ims _ <- get
+    put $ CGS lb lm s2l nsl nl cms b2ms b2ims (-48)    
 
 getLocSize :: CGMonad Integer
 getLocSize = do
-    CGS _ _ _ _ _ _ _ nloc <- get
+    CGS _ _ _ _ _ _ _ _ nloc <- get
     return $ if nloc `mod` 16 == 8 then nloc + 8 else nloc
 
 addInstr :: AsmInstr -> CGMonad ()
@@ -206,7 +214,12 @@ getNextInstr = do
         (i:_) -> return $ Just i
         _ -> return Nothing
 
+setNextInstr :: (IRInstr, LiveMap) -> CGMonad ()
+setNextInstr i = do
+    CGMS r2v v2m is gc <- getCurrentMs
+    setCurrentMs $ CGMS r2v v2m (i:is) gc
+
 removeNextInstr :: CGMonad ()
 removeNextInstr = do
-    CGMS r2v v2m (i:is) gc <- getCurrentMs
+    CGMS r2v v2m (_:is) gc <- getCurrentMs
     setCurrentMs $ CGMS r2v v2m is gc

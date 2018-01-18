@@ -8,8 +8,10 @@ main:
     pushq %R15
     subq $-8, %RSP
     cmpq $6, $4
-    jl .lbl_0
+    jl .tlbl_0
     jmp .lbl_1
+.tlbl_0:
+    jmp .lbl_0
 .lbl_0:
     movq $10, %R12
     movq $20, %RBX
