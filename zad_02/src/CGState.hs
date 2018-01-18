@@ -107,7 +107,7 @@ initialCGState :: LiveState -> [Label] -> CGState
 initialCGState (LS _ lm bl) ord = do
     let initMss = M.fromList $ Prelude.map (\lbl -> (lbl, initialMs (bl ! lbl))) ord
     let initMainMs = initMss ! "main"
-    CGS bl lm M.empty 0 0 initMainMs initMss M.empty (-48)
+    CGS bl lm M.empty 0 0 initMainMs initMss M.empty (-8)
 
 getBlock :: Label -> CGMonad LiveBlock
 getBlock lbl = do
@@ -204,7 +204,7 @@ freshStackLoc = do
 resetStackLoc :: CGMonad ()
 resetStackLoc = do
     CGS lb lm s2l nsl nl cms b2ms b2ims _ <- get
-    put $ CGS lb lm s2l nsl nl cms b2ms b2ims (-48)    
+    put $ CGS lb lm s2l nsl nl cms b2ms b2ims (-8)    
 
 getLocSize :: CGMonad Integer
 getLocSize = do

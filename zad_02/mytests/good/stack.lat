@@ -1,0 +1,26 @@
+int main() {
+    int a = f();
+    int b = f();
+    int c = f();
+    int d = f();
+    int e = f();
+    int f = f();
+    int g = f();
+    int h = f();
+    int i = f();
+    int j = f();
+    int k = f();
+    int l = f();
+    int m = f();
+    int n = f();
+    int o = f();
+    int p = f();
+
+    printInt(a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p);
+
+    return 0;
+}
+
+int f() {
+    return 10;
+}

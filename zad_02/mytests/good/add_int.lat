@@ -1,0 +1,21 @@
+int main() {
+    int x = f();
+    int y = f();
+
+    printInt(x);
+    printInt(y);
+
+    x = x + y;
+
+    printInt(x + y);
+
+    x = x + y;
+
+    printInt(x);
+
+    return 0;
+}
+
+int f() {
+    return 10;
+}

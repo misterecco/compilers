@@ -67,25 +67,26 @@ spill newVar lm = if M.null lm
     then getFreshRegister newVar
     else do
         let nvInt = M.findWithDefault 0 newVar lm
-        CGMS r2v _ _ _ <- getCurrentMs
+        CGMS r2v v2m _ _ <- getCurrentMs
         let (_, v0) = M.elemAt 0 r2v
         let (var, maxInt) = M.foldrWithKey (\_ v (var, maxInt) -> do
             let varInt = lm ! v
             if varInt > maxInt 
             then (v, varInt) 
-            else (var, maxInt)) (v0, lm ! v0) r2v
+            else (var, maxInt)) (v0, 0) (M.filter (`M.member` lm) r2v)
         if nvInt < maxInt 
         then do
             newLoc <- freshStackLoc
-            moveVar var newLoc
+            moveVar var newLoc (v2m ! var)
             getFreshRegister newVar
         else do
             newLoc <- freshStackLoc
             addVarMapping newVar newLoc
             return newLoc 
 
-moveVar :: IRAddr -> CGMem -> CGMonad ()
-moveVar var dst = do
+moveVar :: IRAddr -> CGMem -> CGMem -> CGMonad ()
+moveVar var dst src = do
+    addInstr $ genMovOrLea dst src
     remVarMapping var
     addVarMapping var dst
 
@@ -99,9 +100,9 @@ getMemoryLoc var lm = case var of
     ImmBool b -> return $ Lit $ "$" ++ if b then "1" else "0"
     NoRet -> return $ Lit "$0"
     Indirect _ -> do
-        CGMS _ v2m _ _ <- getCurrentMs
+        CGMS r2v v2m _ _ <- getCurrentMs
         case M.lookup var v2m of
-            Nothing -> if S.size registerPool == M.size lm
+            Nothing -> if S.size registerPool == M.size r2v
                 then spill var lm
                 else getFreshRegister var
             Just mem -> return mem
@@ -356,13 +357,14 @@ addFuncPrologue :: Label -> CGMonad ()
 addFuncPrologue lbl = do
     CGMS r2v v2m is gc <- getMs lbl
     ls <- getLocSize
-    let sb = ls + 40
+    let sb = ls - 8 -- TODO: change it when there is less registers on stack
     let (funcLbl:restInstr) = reverse gc
     let pushRegs = pushRegisters nonvolatileRegisters
     let newGc = [ funcLbl 
                 , Push (Reg RBP)
-                , genMovOrLea (Reg RBP) (Reg RSP) ] ++ pushRegs ++
-                (Sub (Reg RSP) (intLiteral sb)):restInstr
+                , genMovOrLea (Reg RBP) (Reg RSP) ] ++ 
+                (Add (Reg RSP) (intLiteral sb)):pushRegs ++
+                restInstr
     setMs lbl $ CGMS r2v v2m is (reverse newGc)
 
 firstPassOnBlock :: Label -> CGMonad ()

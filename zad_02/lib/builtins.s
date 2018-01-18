@@ -1,7 +1,7 @@
 	.file	"builtins.c"
 	.section	.rodata.str1.1,"aMS",@progbits,1
 .LC0:
-	.string	"%d\n"
+	.string	"%lld\n"
 	.text
 	.p2align 4,,15
 	.globl	printInt
@@ -9,7 +9,7 @@
 printInt:
 .LFB24:
 	.cfi_startproc
-	movl	%edi, %esi
+	movq	%rdi, %rsi
 	leaq	.LC0(%rip), %rdi
 	xorl	%eax, %eax
 	jmp	printf@PLT

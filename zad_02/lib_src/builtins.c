@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-void printInt(int x) {
-    printf("%d\n", x);
+void printInt(long long x) {
+    printf("%lld\n", x);
 }
 
 void printString(const char* str) {
