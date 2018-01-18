@@ -23,6 +23,7 @@ instance Show CGMem where
 
 data AsmInstr 
     = Mov CGMem CGMem
+    | Lea CGMem CGMem
     | Add CGMem CGMem
     | Sub CGMem CGMem
     | Imul CGMem CGMem
@@ -52,9 +53,8 @@ data AsmInstr
 
 instance Show AsmInstr where
     show i = case i of  
-        Mov dst src    -> case src of
-            Obj _ ->      "    leaq " ++ show src ++ ", " ++ show dst
-            _ ->          "    movq " ++ show src ++ ", " ++ show dst
+        Mov dst src    -> "    movq " ++ show src ++ ", " ++ show dst
+        Lea dst src    -> "    leaq " ++ show src ++ ", " ++ show dst
         Add dst src    -> "    addq " ++ show src ++ ", " ++ show dst
         Sub dst src    -> "    subq " ++ show src ++ ", " ++ show dst
         Imul dst src   -> "    imulq " ++ show src ++ ", " ++ show dst
@@ -81,7 +81,6 @@ instance Show AsmInstr where
         P2Align        -> "    .p2align 4,,15"
         Function name  -> "    .type " ++ name ++ ", @function"
         
-
 
 data CGMachineState = CGMS {
     regToVar :: Map CGReg IRAddr,
@@ -236,3 +235,9 @@ removeNextInstr :: CGMonad ()
 removeNextInstr = do
     CGMS r2v v2m (_:is) gc <- getCurrentMs
     setCurrentMs $ CGMS r2v v2m is gc
+
+
+genMovOrLea :: CGMem -> CGMem -> AsmInstr
+genMovOrLea dst src = case src of
+    Obj _ -> Lea dst src
+    _ -> Mov dst src
