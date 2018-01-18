@@ -177,8 +177,12 @@ genInstrs lbl (i, lm) = case i of
                 addInstr $ Cmp (Reg RAX) (intLiteral 0)
             _ -> do
                 largMem <- getMemoryLoc larg lm
-                rargMem <- getMemoryLoc rarg lm
-                addInstr $ Cmp largMem rargMem
+                rargMem <- getMemoryLoc rarg lm                
+                case largMem of
+                    Lit _ -> do
+                        addInstr $ Mov (Reg RAX) largMem
+                        addInstr $ Cmp (Reg RAX) rargMem
+                    _ -> addInstr $ Cmp largMem rargMem
         case cmp of
             IRGt -> addInstr $ Jg tmpLbl
             IRLt -> addInstr $ Jl tmpLbl
@@ -447,11 +451,28 @@ collectAllCode = foldM (\acc lbl -> do
     return $ acc ++ code) []
 
 
+generateStrings :: CGMonad [AsmInstr]
+generateStrings = do
+    s2l <- getStringMapping
+    return $ concatMap (\s -> [Lbl (s2l ! s), Str s]) (M.keys s2l)
+
+generatePrologue :: CGMonad [AsmInstr]
+generatePrologue = do
+    strings <- generateStrings
+    return $ (Section ".rodata"):strings ++ 
+             [ Section ".text"
+             , P2Align 
+             , Global "main"
+             , Function "main" ]
+
+
 genCode :: [Label] -> CGMonad [AsmInstr]
 genCode ord = do
     firstPass ord S.empty
     secondPass ord S.empty
-    collectAllCode ord
+    prologue <- generatePrologue
+    functionsCode <- collectAllCode ord
+    return $ prologue ++ functionsCode
 
 generateAsm :: LiveState -> [Label] -> [AsmInstr]
 generateAsm ls ord = evalState (genCode ord) (initialCGState ls ord)

@@ -32,13 +32,16 @@ runFile f = do
     s <- readFile f
     let path = getTestOutputPath f
     runCompiler path s
-    -- runASM path
+    runASM path
 
 
 runASM :: FilePath -> IO ()
 runASM path = do
     let binPath = getBinaryOutputPath path
-    callCommand $ "gcc -o " ++ binPath ++ " " ++ path
+    let command = "gcc -o " ++ binPath ++ " " ++ path ++ " ../lib/builtins.s"
+    hPutStrLn stderr command
+    callCommand $ command
+    exitSuccess
 
 
 getTestOutputPath :: FilePath -> FilePath
@@ -52,7 +55,7 @@ getTestOutputPath f =
 getBinaryOutputPath :: FilePath -> FilePath
 getBinaryOutputPath f = 
     let n = length f in
-        take (n - 3) f
+        take (n - 2) f
 
 
 printUsage :: IO ()
@@ -82,8 +85,7 @@ runCompiler path s = let ts = myLexer s in case pProgram ts of
             let asmCode = generateAsm igs ord
             h <- openFile path WriteMode    
             mapM_ (hPrint h) asmCode 
-            hClose h
-            exitSuccess            
+            hClose h            
   Bad e -> exitWithError e
   where 
     exitWithError er = do

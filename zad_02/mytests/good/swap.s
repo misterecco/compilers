@@ -1,3 +1,8 @@
+.section .rodata
+.section .text
+    .p2align 4,,15
+    .globl main
+    .type main, @function
 main:
     pushq %RBP
     movq %RSP, %RBP
@@ -7,10 +12,11 @@ main:
     pushq %R14
     pushq %R15
     subq $-8, %RSP
-    cmpq $6, $4
-    jl .tlbl_0
+    movq $4, %RAX
+    cmpq $6, %RAX
+    jl .t_lbl_0
     jmp .lbl_1
-.tlbl_0:
+.t_lbl_0:
     jmp .lbl_0
 .lbl_0:
     movq $10, %R12

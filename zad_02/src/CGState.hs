@@ -45,6 +45,8 @@ data AsmInstr
     | Ret
     | Global Label
     | Lbl Label
+    | P2Align
+    | Function Label
     deriving (Eq, Ord)
 
 instance Show AsmInstr where
@@ -71,8 +73,11 @@ instance Show AsmInstr where
         Str str        -> "    .string " ++ show str
         Leave          -> "    leave"
         Ret            -> "    ret"
-        Global lbl     -> ".globl " ++ lbl
+        Global lbl     -> "    .globl " ++ lbl
         Lbl lbl        -> lbl ++ ":"
+        P2Align        -> "    .p2align 4,,15"
+        Function name  -> "    .type " ++ name ++ ", @function"
+        
 
 
 data CGMachineState = CGMS {
@@ -136,6 +141,11 @@ getStringLbl str = do
     case M.lookup str s2l of
         Nothing -> freshStringLbl str
         Just lbl -> return lbl
+
+getStringMapping :: CGMonad (Map String Label)
+getStringMapping = do
+    CGS _ _ s2l _ _ _ _ _ _ <- get
+    return s2l
 
 getCurrentMs :: CGMonad CGMachineState
 getCurrentMs = do
