@@ -38,7 +38,7 @@ runFile f = do
 runASM :: FilePath -> IO ()
 runASM path = do
     let binPath = getBinaryOutputPath path
-    let command = "gcc -o " ++ binPath ++ " " ++ path ++ " ../lib/builtins.s"
+    let command = "gcc -no-pie -o " ++ binPath ++ " " ++ path ++ " ../lib/builtins.s"
     hPutStrLn stderr command
     callCommand $ command
     exitSuccess

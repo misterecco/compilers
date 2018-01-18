@@ -11,7 +11,7 @@ data CGReg = RBX | R12 | RDI | RSI | R13 | R14 | R15 |
              RDX | RCX | R8 | R9 | RAX | R10 | R11 | RSP | RBP
     deriving (Show, Eq, Ord)
 
-data CGMem = Reg CGReg | Mem CGReg Integer | Lit String
+data CGMem = Reg CGReg | Mem CGReg Integer | Lit String | Obj Label
     deriving (Eq, Ord)
 
 instance Show CGMem where
@@ -19,9 +19,10 @@ instance Show CGMem where
         Reg reg -> "%" ++ show reg
         Mem reg int -> show int ++ "(%" ++ show reg ++ ")"
         Lit lit -> lit
+        Obj lbl -> lbl
 
 data AsmInstr 
-    = Mov CGMem CGMem 
+    = Mov CGMem CGMem
     | Add CGMem CGMem
     | Sub CGMem CGMem
     | Imul CGMem CGMem
@@ -51,7 +52,9 @@ data AsmInstr
 
 instance Show AsmInstr where
     show i = case i of  
-        Mov dst src    -> "    movq " ++ show src ++ ", " ++ show dst
+        Mov dst src    -> case src of
+            Obj _ ->      "    leaq " ++ show src ++ ", " ++ show dst
+            _ ->          "    movq " ++ show src ++ ", " ++ show dst
         Add dst src    -> "    addq " ++ show src ++ ", " ++ show dst
         Sub dst src    -> "    subq " ++ show src ++ ", " ++ show dst
         Imul dst src   -> "    imulq " ++ show src ++ ", " ++ show dst
@@ -70,7 +73,7 @@ instance Show AsmInstr where
         Push mem       -> "    pushq " ++ show mem
         Pop mem        -> "    popq " ++ show mem
         Section str    -> ".section " ++ str
-        Str str        -> "    .string " ++ show str
+        Str str        -> "    .string " ++ str
         Leave          -> "    leave"
         Ret            -> "    ret"
         Global lbl     -> "    .globl " ++ lbl
@@ -124,7 +127,7 @@ initialMs (LB _phi instrs _nb _pb) = CGMS M.empty M.empty instrs []
 freshStringLbl :: String -> CGMonad Label
 freshStringLbl str = do
     CGS bl lm s2l nsl nl cms b2ms b2ims nloc <- get
-    let newLbl = "str_" ++ show nsl
+    let newLbl = ".str_" ++ show nsl
     put $ CGS bl lm (M.insert str newLbl s2l) (nsl+1) nl cms b2ms b2ims nloc
     return newLbl
 

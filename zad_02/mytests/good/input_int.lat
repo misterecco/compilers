@@ -1,0 +1,10 @@
+int main() {
+    printString("Please enter a number");
+
+    int x = readInt();
+
+    printString("Your number is");
+    printInt(x);
+
+    return 0;
+}

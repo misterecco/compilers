@@ -95,7 +95,7 @@ getMemoryLoc var lm = case var of
     ImmInt int -> return $ Lit $ "$" ++ show int
     ImmString str -> do
         lbl <- getStringLbl str
-        return $ Lit lbl
+        return $ Obj lbl
     ImmBool b -> return $ Lit $ "$" ++ if b then "1" else "0"
     NoRet -> return $ Lit "$0"
     Indirect _ -> do
@@ -459,7 +459,7 @@ generateStrings = do
 generatePrologue :: CGMonad [AsmInstr]
 generatePrologue = do
     strings <- generateStrings
-    return $ (Section ".rodata"):strings ++ 
+    return $ (Section ".data"):strings ++ 
              [ Section ".text"
              , P2Align 
              , Global "main"
