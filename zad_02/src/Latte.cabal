@@ -10,6 +10,7 @@ executable latc_x86_64
     mtl, 
     array, 
     containers,
+    multimap,
     ordered-containers, 
     process >= 1.2.0.0
   other-modules:      

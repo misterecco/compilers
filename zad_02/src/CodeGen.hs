@@ -9,15 +9,18 @@ import Live ( LiveMap, LiveState(..), LiveBlock(LB) )
 import CGState
 import CFG ( Phi )
 
+
+type MemMap = Map CGMem CGMem
+
 registerPool :: Set CGReg
-registerPool = S.fromList [RDI, RSI, RCX, R8, R9, RAX, R10, R11,
-            RBX, R12, R13, R14, R15]
+registerPool = S.fromList [R10, R11, RBX, R12, R13, R14, 
+                           R15, RDI, RSI, RCX, R8, R9]
 
 nonvolatileRegisters :: [CGReg]
 nonvolatileRegisters = [RBX, R12, R13, R14, R15]
 
 volatileRegisters :: [CGReg]
-volatileRegisters = [RDI, RSI, RCX, R8, R9, R10, R11]
+volatileRegisters = [RAX, RDI, RSI, RCX, R8, R9, R10, R11]
 
 paramRegisters :: [CGReg]
 paramRegisters = [RDI, RSI, RDX, RCX, R8, R9]
@@ -237,21 +240,20 @@ addMemSwaps src dst = do
     mapping <- calculateMemMapping src dst
     cycleOnlyMapping <- addMovs mapping
     addXchgs cycleOnlyMapping
-    return ()
 
-calculateMemMapping :: Label -> Label -> CGMonad (Map CGMem CGMem)
+calculateMemMapping :: Label -> Label -> CGMonad MemMap
 calculateMemMapping src dst = do
     CGMS _ v2mDst _ _ <- getInitMs dst
     CGMS _ v2mSrc _ _ <- getCurrentMs    
     LB phi _ _ _ <- getBlock dst            
     calcMap v2mSrc phi (M.toList v2mDst)
   where
-    calcMap :: Map IRAddr CGMem -> Phi -> [(IRAddr, CGMem)] -> CGMonad (Map CGMem CGMem)
+    calcMap :: Map IRAddr CGMem -> Phi -> [(IRAddr, CGMem)] -> CGMonad MemMap
     calcMap v2mSrc phi = foldM (\acc (var, mem) ->
         if var `M.member` v2mSrc
             then do
                 let srcMem = v2mSrc ! var
-                return $ M.insert srcMem mem acc
+                return $ M.insert mem srcMem acc
             else do
                 let pm = findPhiMapping phi var
                 case pm of
@@ -261,11 +263,11 @@ calculateMemMapping src dst = do
                             ImmInt int -> return $ intLiteral int
                             ImmString str -> do
                                 lbl <- getStringLbl str
-                                return $ Lit lbl
+                                return $ Obj lbl
                             ImmBool b -> return $ Lit $ "$" ++ if b then "1" else "0"
                             NoRet -> return $ Lit "$0"
                             Indirect _ -> return $ v2mSrc ! srcVar
-                        return $ M.insert srcMem mem acc
+                        return $ M.insert mem srcMem acc
             ) M.empty
     findPhiMapping :: Phi -> IRAddr -> Maybe IRAddr
     findPhiMapping phi var = case M.lookup var phi of
@@ -282,7 +284,7 @@ addXchgs mapping = if M.null mapping
         newMapping <- addXchg cStart cStart mapping
         addXchgs newMapping
 
-addXchg :: CGMem -> CGMem -> Map CGMem CGMem -> CGMonad (Map CGMem CGMem)
+addXchg :: CGMem -> CGMem -> Map CGMem CGMem -> CGMonad MemMap
 addXchg cEnd next mapping = if mapping ! next == cEnd
     then return $ M.delete next mapping
     else do
@@ -290,17 +292,18 @@ addXchg cEnd next mapping = if mapping ! next == cEnd
         addInstr $ Xchg dst next
         addXchg cEnd dst (M.delete next mapping)
 
-addMovs :: Map CGMem CGMem -> CGMonad (Map CGMem CGMem)
+addMovs :: Map CGMem CGMem -> CGMonad MemMap
 addMovs mapping = do
     m1 <- addMov mapping
     if m1 == mapping 
         then return mapping
         else addMovs m1
 
-addMov :: Map CGMem CGMem -> CGMonad (Map CGMem CGMem)
+addMov :: Map CGMem CGMem -> CGMonad MemMap
 addMov mapping = do
-    let leaves = M.filter (\v -> M.notMember v mapping) mapping
-    mapM_ (\(src, dst) -> addInstr $ genMovOrLea dst src) (M.toList leaves)
+    let ks = S.fromList $ M.elems mapping
+    let leaves = M.filterWithKey (\k _ -> S.notMember k ks) mapping
+    mapM_ (\(dst, src) -> addInstr $ genMovOrLea dst src) (M.toList leaves)
     return $ mapping M.\\ leaves
 
 

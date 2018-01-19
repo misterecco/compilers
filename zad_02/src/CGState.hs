@@ -7,8 +7,8 @@ import Data.Set as S
 import IRDef
 import Live ( LiveMap, LiveState(..), LiveBlock(LB) )
 
-data CGReg = RBX | R12 | RDI | RSI | R13 | R14 | R15 |
-             RDX | RCX | R8 | R9 | RAX | R10 | R11 | RSP | RBP
+data CGReg = RBX | R12 | R13 | R14 | R15 | RAX | R10 | R11 |
+             RDI | RSI | RDX | RCX | R8 | R9 | RSP | RBP
     deriving (Show, Eq, Ord)
 
 data CGMem = Reg CGReg | Mem CGReg Integer | Lit String | Obj Label
