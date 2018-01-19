@@ -28,7 +28,7 @@ data AsmInstr
     | Sub CGMem CGMem
     | Imul CGMem CGMem
     | Idiv CGMem
-    | Cdq
+    | Cqo
     | Call Label
     | Xchg CGMem CGMem
     | Cmp CGMem CGMem
@@ -59,7 +59,7 @@ instance Show AsmInstr where
         Sub dst src    -> "    subq " ++ show src ++ ", " ++ show dst
         Imul dst src   -> "    imulq " ++ show src ++ ", " ++ show dst
         Idiv reg       -> "    idivq " ++ show reg
-        Cdq            -> "    cdqq"
+        Cqo            -> "    cqo"
         Call lbl       -> "    call " ++ lbl
         Xchg larg rarg -> "    xchgq " ++ show rarg ++ ", " ++ show larg
         Cmp larg rarg  -> "    cmpq " ++ show rarg ++ ", " ++ show larg
@@ -86,7 +86,8 @@ data CGMachineState = CGMS {
     regToVar :: Map CGReg IRAddr,
     varToMem :: Map IRAddr CGMem,
     nextInstrs :: [(IRInstr, LiveMap)],
-    generatedCode :: [AsmInstr]
+    generatedCode :: [AsmInstr],
+    currentStackPos :: Integer
 }
 
 data CGState = CGS {
@@ -111,7 +112,7 @@ initialCGState (LS _ lm bl) ord = do
     CGS bl lm M.empty 0 0 initMainMs initMss M.empty (-8)
 
 initialMs :: LiveBlock -> CGMachineState
-initialMs (LB _phi instrs _nb _pb) = CGMS M.empty M.empty instrs []
+initialMs (LB _phi instrs _nb _pb) = CGMS M.empty M.empty instrs [] 0
 
 
 getBlock :: Label -> CGMonad LiveBlock
@@ -190,7 +191,7 @@ setMs lbl ms = do
 
 getInitMs :: Label -> CGMonad CGMachineState
 getInitMs lbl = do
-    CGS _ _ _ _ _ _ _ b2ims _<- get
+    CGS {blockToInitialMs = b2ims}<- get
     return $ b2ims ! lbl
 
 setInitMs :: Label -> CGMachineState -> CGMonad ()
@@ -216,28 +217,28 @@ getLocSize = do
 
 addInstr :: AsmInstr -> CGMonad ()
 addInstr instr = do
-    CGMS r2v v2m is gc <- getCurrentMs
-    setCurrentMs $ CGMS r2v v2m is (instr:gc)
+    cms@CGMS {generatedCode = gc} <- getCurrentMs
+    setCurrentMs $ cms {generatedCode = instr:gc}
 
 addInstrs :: [AsmInstr] -> CGMonad ()
 addInstrs = mapM_ addInstr
 
 getNextInstr :: CGMonad (Maybe (IRInstr, LiveMap))
 getNextInstr = do
-    CGMS _ _ ni _ <- getCurrentMs
+    CGMS {nextInstrs = ni} <- getCurrentMs
     case ni of
         (i:_) -> return $ Just i
         _ -> return Nothing
 
 setNextInstr :: (IRInstr, LiveMap) -> CGMonad ()
 setNextInstr i = do
-    CGMS r2v v2m is gc <- getCurrentMs
-    setCurrentMs $ CGMS r2v v2m (i:is) gc
+    cms@CGMS {nextInstrs = is} <- getCurrentMs
+    setCurrentMs $ cms {nextInstrs = i:is}
 
 removeNextInstr :: CGMonad ()
 removeNextInstr = do
-    CGMS r2v v2m (_:is) gc <- getCurrentMs
-    setCurrentMs $ CGMS r2v v2m is gc
+    cms@CGMS {nextInstrs = _:is}<- getCurrentMs
+    setCurrentMs $ cms {nextInstrs = is}
 
 
 genMovOrLea :: CGMem -> CGMem -> AsmInstr

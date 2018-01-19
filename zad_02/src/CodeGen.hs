@@ -13,52 +13,58 @@ import CFG ( Phi )
 type MemMap = Map CGMem CGMem
 
 registerPool :: Set CGReg
-registerPool = S.fromList [R10, R11, RBX, R12, R13, R14, 
-                           R15, RDI, RSI, RCX, R8, R9]
+registerPool = S.fromList [R11, RBX, R12, R13, R14, R15, RDI, RSI, RCX, R8, R9]
 
 nonvolatileRegisters :: [CGReg]
 nonvolatileRegisters = [RBX, R12, R13, R14, R15]
 
 volatileRegisters :: [CGReg]
-volatileRegisters = [RAX, RDI, RSI, RCX, R8, R9, R10, R11]
+volatileRegisters = [RAX, RDI, RSI, RCX, RDX, R8, R9, R10, R11]
 
 paramRegisters :: [CGReg]
 paramRegisters = [RDI, RSI, RDX, RCX, R8, R9]
 
 
+pushNonvolatileRegs :: [AsmInstr]
+pushNonvolatileRegs = Prelude.map (\reg -> Push (Reg reg)) nonvolatileRegisters
+
+popNonvolatileRegs :: [AsmInstr]
+popNonvolatileRegs = Prelude.map (\reg -> Pop (Reg reg)) . reverse $ nonvolatileRegisters
+
+
 expireOld :: LiveMap -> CGMonad ()
 expireOld lm = do
-    CGMS r2v v2m is gc <- getCurrentMs
+    cms@CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
     let newR2v = M.filter (`M.member` lm) r2v
     let newV2m = M.filterWithKey (\k _ -> k `M.member` lm) v2m
-    setCurrentMs $ CGMS newR2v newV2m is gc
+    setCurrentMs $ cms {regToVar = newR2v, varToMem = newV2m}
 
 addVarMapping :: IRAddr -> CGMem -> CGMonad ()
 addVarMapping var mem = case var of
     Indirect _ -> do
-        CGMS r2v v2m is gc <- getCurrentMs
+        cms@CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
         case mem of
             Reg reg -> do
                 let newR2v = M.insert reg var r2v
                 let newV2m = M.insert var mem v2m
-                setCurrentMs $ CGMS newR2v newV2m is gc
+                setCurrentMs $ cms {regToVar = newR2v, varToMem = newV2m}
             _ -> do
                 let newV2m = M.insert var mem v2m
-                setCurrentMs $ CGMS r2v newV2m is gc
+                setCurrentMs $ cms {varToMem = newV2m}
     _ -> return ()
 
 remVarMapping :: IRAddr -> CGMonad ()
 remVarMapping var = case var of
     Indirect _ -> do
-        CGMS r2v v2m is gc <- getCurrentMs
+        cms@CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
         let newR2v = M.filter (/= var) r2v
         let newV2m = M.filterWithKey (\k _ -> k /= var) v2m
-        setCurrentMs $ CGMS newR2v newV2m is gc
+        setCurrentMs $ cms {regToVar = newR2v, varToMem = newV2m}
     _ -> return ()
 
 getFreshRegister :: IRAddr -> CGMonad CGMem
 getFreshRegister var = do
-    CGMS r2v _ _ _ <- getCurrentMs
+    CGMS {regToVar = r2v} <- getCurrentMs
     let freeRegisters = S.difference registerPool (S.fromList (M.keys r2v))
     let reg = S.elemAt 0 freeRegisters
     let mem = Reg reg
@@ -70,7 +76,7 @@ spill newVar lm = if M.null lm
     then getFreshRegister newVar
     else do
         let nvInt = M.findWithDefault 0 newVar lm
-        CGMS r2v v2m _ _ <- getCurrentMs
+        CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
         let (_, v0) = M.elemAt 0 r2v
         let (var, maxInt) = M.foldrWithKey (\_ v (var, maxInt) -> do
             let varInt = lm ! v
@@ -103,7 +109,7 @@ getMemoryLoc var lm = case var of
     ImmBool b -> return $ Lit $ "$" ++ if b then "1" else "0"
     NoRet -> return $ Lit "$0"
     Indirect _ -> do
-        CGMS r2v v2m _ _ <- getCurrentMs
+        CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
         case M.lookup var v2m of
             Nothing -> if S.size registerPool == M.size r2v
                 then spill var lm
@@ -116,10 +122,10 @@ intLiteral int = Lit $ "$" ++ show int
 
 callStringFunction :: Label -> LiveMap -> IRAddr -> IRAddr -> CGMonad ()
 callStringFunction lbl lm larg rarg = do
-    preserveRegisters lm
+    preserveRegisters
     prepareRegisterArgs [larg, rarg] lm
-    addInstr $ Call lbl
-    restoreRegisters lm
+    callFunc lbl
+    restoreRegisters
 
 genInstrs :: Label -> (IRInstr, LiveMap) -> CGMonad ()
 genInstrs lbl (i, lm) = case i of
@@ -141,14 +147,22 @@ genInstrs lbl (i, lm) = case i of
                                         , Sub dstMem rargMem ]
                     IRMul -> addInstrs [ genMovOrLea dstMem largMem
                                         , Imul dstMem rargMem ]
-                    IRDiv -> addInstrs [ genMovOrLea (Reg RAX) largMem
-                                        , Cdq
-                                        , Idiv rargMem
-                                        , genMovOrLea dstMem (Reg RAX) ]
-                    IRMod -> addInstrs [ genMovOrLea (Reg RAX) largMem
-                                        , Cdq
-                                        , Idiv rargMem
-                                        , genMovOrLea dstMem (Reg RDX) ]
+                    IRDiv -> do
+                        addInstrs [ genMovOrLea (Reg RAX) largMem
+                                  , Cqo ]
+                        case rargMem of
+                            Lit _ -> addInstrs [ genMovOrLea (Reg R10) rargMem
+                                               , Idiv (Reg R10) ]
+                            _ -> addInstr $ Idiv rargMem
+                        addInstr $ genMovOrLea dstMem (Reg RAX)
+                    IRMod -> do
+                        addInstrs [ genMovOrLea (Reg RAX) largMem
+                                  , Cqo ]
+                        case rargMem of
+                            Lit _ -> addInstrs [ genMovOrLea (Reg R10) rargMem
+                                               , Idiv (Reg R10) ]
+                            _ -> addInstr $ Idiv rargMem
+                        addInstr $ genMovOrLea dstMem (Reg RDX)
             _ -> return ()
     IRSAss op dst arg -> if dst `M.notMember` lm
         then return ()
@@ -161,13 +175,13 @@ genInstrs lbl (i, lm) = case i of
                 IRNeg -> addInstrs [ genMovOrLea dstMem argMem
                                     , Imul dstMem (intLiteral (-1)) ]
     IRCall dst func args -> do
-        let n = toInteger (length args)
-        preserveRegisters lm
-        pushRestArgs (drop 6 args) lm
-        prepareRegisterArgs (take 6 args) lm
-        addInstr $ Call func
-        popRestArgs n
-        restoreRegisters lm
+        let (regArgs, stackArgs) = splitAt 6 args
+        preserveRegisters
+        pushRestArgs lm stackArgs
+        prepareRegisterArgs regArgs lm
+        callFunc func
+        popRestArgs stackArgs
+        restoreRegisters
         if dst == NoRet || dst `M.notMember` lm
             then return ()
             else do
@@ -210,7 +224,7 @@ genInstrs lbl (i, lm) = case i of
             addInstr $ genMovOrLea dstMem argMem
     IRLabel l -> addInstr $ Lbl l
     IRRet addr -> do
-        let popReg = popRegisters nonvolatileRegisters
+        let popReg = popNonvolatileRegs
         case addr of
             NoRet -> addInstrs $ popReg ++ [ Leave
                                             , Ret]
@@ -243,9 +257,9 @@ addMemSwaps src dst = do
 
 calculateMemMapping :: Label -> Label -> CGMonad MemMap
 calculateMemMapping src dst = do
-    CGMS _ v2mDst _ _ <- getInitMs dst
-    CGMS _ v2mSrc _ _ <- getCurrentMs    
-    LB phi _ _ _ <- getBlock dst            
+    CGMS {varToMem = v2mDst} <- getInitMs dst
+    CGMS {varToMem = v2mSrc}<- getCurrentMs    
+    LB phi _ _ _ <- getBlock dst
     calcMap v2mSrc phi (M.toList v2mDst)
   where
     calcMap :: Map IRAddr CGMem -> Phi -> [(IRAddr, CGMem)] -> CGMonad MemMap
@@ -306,69 +320,114 @@ addMov mapping = do
     mapM_ (\(dst, src) -> addInstr $ genMovOrLea dst src) (M.toList leaves)
     return $ mapping M.\\ leaves
 
+pushStackLoc :: CGMonad CGMem
+pushStackLoc = do
+    cms@CGMS {varToMem = v2m, currentStackPos = csp} <- getCurrentMs
+    let newCsp = csp - 8
+    let newV2m = M.map (\mem -> case mem of
+                            Mem RSP offset -> Mem RSP (offset+8)
+                            _ -> mem) v2m
+    setCurrentMs $ cms {varToMem = newV2m, currentStackPos = newCsp}
+    currentStackLoc
 
-pushRegisters :: [CGReg] -> [AsmInstr]
-pushRegisters = Prelude.map (\reg -> Push (Reg reg))
+popStackLoc :: CGMonad ()
+popStackLoc = do
+    cms@CGMS {varToMem = v2m, currentStackPos = csp} <- getCurrentMs
+    let newV2m = M.map (\mem -> case mem of
+                            Mem RSP offset -> Mem RSP (offset-8)
+                            _ -> mem) v2m
+    setCurrentMs $ cms {varToMem = newV2m, currentStackPos = csp + 8}
 
-popRegisters :: [CGReg] -> [AsmInstr]
-popRegisters = (Prelude.map (\reg -> Pop (Reg reg))) . reverse
+currentStackLoc :: CGMonad CGMem
+currentStackLoc = return $ Mem RSP 0
+
+pushVariable :: LiveMap -> IRAddr -> CGMonad ()
+pushVariable lm arg = do
+    argMem <- getMemoryLoc arg lm
+    _ <- pushStackLoc
+    addInstr $ Push argMem
+
+popVariables :: [IRAddr] -> CGMonad ()
+popVariables args = unless (Prelude.null args) $ do
+    mapM_ (\_ -> popStackLoc) args
+    let n = toInteger $ length args
+    addInstr $ Add (Reg RSP) (intLiteral (n*8))
+
+
+pushRegister :: CGReg -> CGMonad ()
+pushRegister reg = do
+    let regMem = Reg reg
+    CGMS {regToVar = r2v} <- getCurrentMs
+    tmpMem <- pushStackLoc
+    when (reg `M.member` r2v) $ do
+        let var = r2v ! reg
+        moveVar var tmpMem regMem
+    addInstr $ Push regMem
+
+popRegister :: CGReg -> CGMonad ()
+popRegister reg = do
+    let regMem = Reg reg
+    csl <- currentStackLoc
+    CGMS {varToMem = v2m} <- getCurrentMs
+    popStackLoc    
+    let filteredV2m = M.filter (== csl) v2m
+    unless (M.null filteredV2m) $ do
+        let (var, _) = M.elemAt 0 filteredV2m
+        moveVar var regMem csl
+    addInstr $ Pop regMem
+
+pushRegisters :: [CGReg] -> CGMonad ()
+pushRegisters = mapM_ pushRegister
+
+popRegisters :: [CGReg] -> CGMonad ()
+popRegisters = (mapM_ popRegister) . reverse
+
+callFunc :: Label -> CGMonad ()
+callFunc lbl = do
+    CGMS {currentStackPos = csp} <- getCurrentMs
+    if csp `mod` 16 == 0 
+        then addInstr $ Call lbl
+    else addInstrs [ Sub (Reg RSP) (intLiteral 8)
+                   , Call lbl
+                   , Add (Reg RSP) (intLiteral 8) ]
 
 prepareRegisterArgs :: [IRAddr] -> LiveMap -> CGMonad ()
 prepareRegisterArgs args lm = mapM_ (\(arg, reg) -> do
     argMem <- getMemoryLoc arg lm
     addInstr $ genMovOrLea (Reg reg) argMem) (zip args paramRegisters)
 
-pushRestArgs :: [IRAddr] -> LiveMap -> CGMonad ()
-pushRestArgs args lm = do
-    let n = toInteger $ length args
-    if n == 0 
-        then return ()
-        else do
-            mapM_ (\arg -> do
-                argMem <- getMemoryLoc arg lm
-                addInstr $ Push argMem) (reverse args)
-            if n `mod` 2 == 0 
-                then return ()
-                else addInstr $ Sub (Reg RSP) (intLiteral 8)
+pushRestArgs :: LiveMap -> [IRAddr] -> CGMonad ()
+pushRestArgs lm = (mapM_ (pushVariable lm)) . reverse
 
-popRestArgs :: Integer -> CGMonad ()
-popRestArgs n = if n <= 6 
-    then return ()
-    else do
-        let alignedN = if n `mod` 2 == 0 then n-6 else n-5
-        let sub = 8 * alignedN
-        addInstr $ Add (Reg RSP) (intLiteral sub)
+popRestArgs :: [IRAddr] -> CGMonad ()
+popRestArgs = popVariables
 
-getActiveVolatileRegs :: LiveMap -> CGMonad [CGReg]
-getActiveVolatileRegs lm = do
-    CGMS r2v _ _ _ <- getCurrentMs
-    return $ Prelude.filter (\reg -> 
-            reg `M.member` r2v && (r2v ! reg) `M.member` lm) volatileRegisters
+getActiveVolatileRegs :: CGMonad [CGReg]
+getActiveVolatileRegs = do
+    CGMS {regToVar = r2v} <- getCurrentMs
+    return $ Prelude.filter (\reg -> reg `M.member` r2v ) volatileRegisters
 
-preserveRegisters :: LiveMap -> CGMonad ()
-preserveRegisters lm = do
-    regs <- getActiveVolatileRegs lm
-    addInstrs $ pushRegisters regs
 
-restoreRegisters :: LiveMap -> CGMonad ()
-restoreRegisters lm = do
-    regs <- getActiveVolatileRegs lm
-    addInstrs $ popRegisters regs
+preserveRegisters :: CGMonad ()
+preserveRegisters = getActiveVolatileRegs >>= pushRegisters
+
+restoreRegisters :: CGMonad ()
+restoreRegisters = getActiveVolatileRegs >>= popRegisters
 
 
 addFuncPrologue :: Label -> CGMonad ()
 addFuncPrologue lbl = do
-    CGMS r2v v2m is gc <- getMs lbl
+    cms@CGMS {generatedCode = gc} <- getMs lbl
     ls <- getLocSize
-    let sb = ls - 8 -- TODO: change it when there is less registers on stack
+    let alignedLs = ls - 8
     let (funcLbl:restInstr) = reverse gc
-    let pushRegs = pushRegisters nonvolatileRegisters
+    let pushRegs = pushNonvolatileRegs
     let newGc = [ funcLbl 
                 , Push (Reg RBP)
                 , genMovOrLea (Reg RBP) (Reg RSP) ] ++ 
-                (Add (Reg RSP) (intLiteral sb)):pushRegs ++
+                (Add (Reg RSP) (intLiteral alignedLs)):pushRegs ++
                 restInstr
-    setMs lbl $ CGMS r2v v2m is (reverse newGc)
+    setMs lbl $ cms {generatedCode = reverse newGc}
 
 firstPassOnBlock :: Label -> CGMonad ()
 firstPassOnBlock lbl = do
@@ -447,7 +506,7 @@ secondPass (b:bs) visited
 
 collectCode :: Label -> CGMonad [AsmInstr]
 collectCode lbl = do
-    CGMS _ _ _ gc <- getMs lbl
+    CGMS {generatedCode = gc} <- getMs lbl
     return $ reverse gc
 
 collectAllCode :: [Label] -> CGMonad [AsmInstr]

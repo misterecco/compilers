@@ -1,4 +1,6 @@
 .section .data
+.str_0:
+    .string "foo"
 .section .text
     .p2align 4,,15
     .globl main
@@ -12,24 +14,7 @@ main:
     pushq %R13
     pushq %R14
     pushq %R15
-    call f
-    movq %RAX, %RBX
-    call f
-    movq %RAX, %R12
-    movq %RBX, %RDI
-    call printInt
-    movq %R12, %RDI
-    call printInt
-    movq %RBX, %R13
-    addq %R12, %R13
-    movq %R13, %RBX
-    addq %R12, %RBX
-    movq %RBX, %RDI
-    call printInt
-    movq %R13, %RBX
-    addq %R12, %RBX
-    movq %RBX, %RDI
-    call printInt
+    call foo
     movq $0, %RAX
     popq %R15
     popq %R14
@@ -38,7 +23,7 @@ main:
     popq %RBX
     leave
     ret
-f:
+foo:
     pushq %RBP
     movq %RSP, %RBP
     addq $-8, %RSP
@@ -47,7 +32,8 @@ f:
     pushq %R13
     pushq %R14
     pushq %R15
-    movq $10, %RAX
+    leaq .str_0, %RDI
+    call printString
     popq %R15
     popq %R14
     popq %R13
