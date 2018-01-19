@@ -27,6 +27,7 @@ executable latc_x86_64
     SSA,
     Live,
     CodeGen,
-    CGState
+    CGState,
+    CGDef
   default-language:   Haskell2010  
   main-is:            Compiler.hs

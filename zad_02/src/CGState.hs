@@ -4,105 +4,22 @@ import Control.Monad.State
 import Data.Map as M
 import Data.Set as S
 
+import CGDef
 import IRDef
 import Live ( LiveMap, LiveState(..), LiveBlock(LB) )
 
-data CGReg = RBX | R12 | R13 | R14 | R15 | RAX | R10 | R11 |
-             RDI | RSI | RDX | RCX | R8 | R9 | RSP | RBP
-    deriving (Show, Eq, Ord)
 
-data CGMem = Reg CGReg | Mem CGReg Integer | Lit String | Obj Label
-    deriving (Eq, Ord)
+registerPool :: Set CGReg
+registerPool = S.fromList [R11, RBX, R12, R13, R14, R15, RDI, RSI, RCX, R8, R9]
 
-instance Show CGMem where
-    show m = case m of
-        Reg reg -> "%" ++ show reg
-        Mem reg int -> show int ++ "(%" ++ show reg ++ ")"
-        Lit lit -> lit
-        Obj lbl -> lbl
+nonvolatileRegisters :: [CGReg]
+nonvolatileRegisters = [RBX, R12, R13, R14, R15]
 
-data AsmInstr 
-    = Mov CGMem CGMem
-    | Lea CGMem CGMem
-    | Add CGMem CGMem
-    | Sub CGMem CGMem
-    | Imul CGMem CGMem
-    | Idiv CGMem
-    | Cqo
-    | Call Label
-    | Xchg CGMem CGMem
-    | Cmp CGMem CGMem
-    | Jmp Label 
-    | Jg Label
-    | Jl Label
-    | Jle Label 
-    | Jge Label
-    | Jeq Label
-    | Jne Label
-    | Push CGMem
-    | Pop CGMem
-    | Section String
-    | Str String
-    | Leave
-    | Ret
-    | Global Label
-    | Lbl Label
-    | P2Align
-    | Function Label
-    deriving (Eq, Ord)
+volatileRegisters :: [CGReg]
+volatileRegisters = [RAX, RDI, RSI, RCX, RDX, R8, R9, R10, R11]
 
-instance Show AsmInstr where
-    show i = case i of  
-        Mov dst src    -> "    movq " ++ show src ++ ", " ++ show dst
-        Lea dst src    -> "    leaq " ++ show src ++ ", " ++ show dst
-        Add dst src    -> "    addq " ++ show src ++ ", " ++ show dst
-        Sub dst src    -> "    subq " ++ show src ++ ", " ++ show dst
-        Imul dst src   -> "    imulq " ++ show src ++ ", " ++ show dst
-        Idiv reg       -> "    idivq " ++ show reg
-        Cqo            -> "    cqo"
-        Call lbl       -> "    call " ++ lbl
-        Xchg larg rarg -> "    xchgq " ++ show rarg ++ ", " ++ show larg
-        Cmp larg rarg  -> "    cmpq " ++ show rarg ++ ", " ++ show larg
-        Jmp lbl        -> "    jmp " ++ lbl
-        Jg lbl         -> "    jg " ++ lbl
-        Jl lbl         -> "    jl " ++ lbl
-        Jle lbl        -> "    jle " ++ lbl
-        Jge lbl        -> "    jge " ++ lbl
-        Jeq lbl        -> "    je " ++ lbl
-        Jne lbl        -> "    jne " ++ lbl
-        Push mem       -> "    pushq " ++ show mem
-        Pop mem        -> "    popq " ++ show mem
-        Section str    -> ".section " ++ str
-        Str str        -> "    .string " ++ str
-        Leave          -> "    leave"
-        Ret            -> "    ret"
-        Global lbl     -> "    .globl " ++ lbl
-        Lbl lbl        -> lbl ++ ":"
-        P2Align        -> "    .p2align 4,,15"
-        Function name  -> "    .type " ++ name ++ ", @function"
-        
-
-data CGMachineState = CGMS {
-    regToVar :: Map CGReg IRAddr,
-    varToMem :: Map IRAddr CGMem,
-    nextInstrs :: [(IRInstr, LiveMap)],
-    generatedCode :: [AsmInstr],
-    currentStackPos :: Integer
-}
-
-data CGState = CGS {
-    blocks :: Map Label LiveBlock,
-    liveIn :: Map Label (Set IRAddr),
-    strToLbl :: Map String Label,
-    nextStrLbl :: Integer,
-    nextLbl :: Integer,
-    currentMs :: CGMachineState,
-    blockToMs :: Map Label CGMachineState,
-    blockToInitialMs :: Map Label CGMachineState,
-    nextStackLoc :: Integer
-}
-
-type CGMonad = State CGState
+paramRegisters :: [CGReg]
+paramRegisters = [RDI, RSI, RDX, RCX, R8, R9]
 
 
 initialCGState :: LiveState -> [Label] -> CGState
@@ -118,12 +35,12 @@ initialMs (LB _phi instrs _nb _pb) = CGMS M.empty M.empty instrs [] 0
 getBlock :: Label -> CGMonad LiveBlock
 getBlock lbl = do
     st <- get
-    return $ CGState.blocks st ! lbl
+    return $ CGDef.blocks st ! lbl
 
 getLiveIn :: Label -> CGMonad (Set IRAddr)
 getLiveIn lbl = do
     st <- get
-    return $ CGState.liveIn st ! lbl
+    return $ CGDef.liveIn st ! lbl
 
 
 freshStringLbl :: String -> CGMonad Label
@@ -245,3 +162,94 @@ genMovOrLea :: CGMem -> CGMem -> AsmInstr
 genMovOrLea dst src = case src of
     Obj _ -> Lea dst src
     _ -> Mov dst src
+
+
+intLiteral :: Integer -> CGMem
+intLiteral int = Lit $ CGInt int
+
+boolLiteral :: Bool -> CGMem
+boolLiteral b = Lit $ CGBool b
+
+
+getFreshRegister :: IRAddr -> CGMonad CGMem
+getFreshRegister var = do
+    CGMS {regToVar = r2v} <- getCurrentMs
+    let freeRegisters = S.difference registerPool (S.fromList (M.keys r2v))
+    let reg = S.elemAt 0 freeRegisters
+    let mem = Reg reg
+    addVarMapping var mem
+    return mem
+
+addVarMapping :: IRAddr -> CGMem -> CGMonad ()
+addVarMapping var mem = case var of
+    Indirect _ -> do
+        cms@CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
+        case mem of
+            Reg reg -> do
+                let newR2v = M.insert reg var r2v
+                let newV2m = M.insert var mem v2m
+                setCurrentMs $ cms {regToVar = newR2v, varToMem = newV2m}
+            _ -> do
+                let newV2m = M.insert var mem v2m
+                setCurrentMs $ cms {varToMem = newV2m}
+    _ -> return ()
+
+remVarMapping :: IRAddr -> CGMonad ()
+remVarMapping var = case var of
+    Indirect _ -> do
+        cms@CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
+        let newR2v = M.filter (/= var) r2v
+        let newV2m = M.filterWithKey (\k _ -> k /= var) v2m
+        setCurrentMs $ cms {regToVar = newR2v, varToMem = newV2m}
+    _ -> return ()
+
+expireOld :: LiveMap -> CGMonad ()
+expireOld lm = do
+    cms@CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
+    let newR2v = M.filter (`M.member` lm) r2v
+    let newV2m = M.filterWithKey (\k _ -> k `M.member` lm) v2m
+    setCurrentMs $ cms {regToVar = newR2v, varToMem = newV2m}
+
+spill :: IRAddr -> LiveMap -> CGMonad CGMem
+spill newVar lm = if M.null lm 
+    then getFreshRegister newVar
+    else do
+        let nvInt = M.findWithDefault 0 newVar lm
+        CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
+        let (_, v0) = M.elemAt 0 r2v
+        let (var, maxInt) = M.foldrWithKey (\_ v (vm, mi) -> do
+            let varInt = lm ! v
+            if varInt > mi 
+                then (v, varInt) 
+                else (vm, mi)) (v0, 0) (M.filter (`M.member` lm) r2v)
+        if nvInt < maxInt 
+            then do
+                newLoc <- freshStackLoc
+                moveVar var newLoc (v2m ! var)
+                getFreshRegister newVar
+            else do
+                newLoc <- freshStackLoc
+                addVarMapping newVar newLoc
+                return newLoc 
+
+moveVar :: IRAddr -> CGMem -> CGMem -> CGMonad ()
+moveVar var dst src = do
+    addInstr $ genMovOrLea dst src
+    remVarMapping var
+    addVarMapping var dst
+
+getMemoryLoc :: IRAddr -> LiveMap -> CGMonad CGMem
+getMemoryLoc var lm = case var of
+    ImmInt int -> return $ intLiteral int
+    ImmString str -> do
+        lbl <- getStringLbl str
+        return $ Obj lbl
+    ImmBool b -> return $ boolLiteral b
+    NoRet -> return $ intLiteral 0
+    Indirect _ -> do
+        CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
+        case M.lookup var v2m of
+            Nothing -> if S.size registerPool == M.size r2v
+                then spill var lm
+                else getFreshRegister var
+            Just mem -> return mem
