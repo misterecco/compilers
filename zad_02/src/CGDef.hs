@@ -109,7 +109,9 @@ data CGState = CGS {
     currentMs :: CGMachineState,
     blockToMs :: Map Label CGMachineState,
     blockToInitialMs :: Map Label CGMachineState,
-    nextStackLoc :: Integer
+    nextStackLoc :: Integer,
+    nonvolatileRegsUsed :: Set CGReg,
+    blToNru :: Map Label [CGReg]
 }
 
 type CGMonad = State CGState

@@ -14,13 +14,6 @@ import CFG ( Phi )
 type MemMap = Map CGMem CGMem
 
 
-pushNonvolatileRegs :: [AsmInstr]
-pushNonvolatileRegs = Prelude.map (\reg -> Push (Reg reg)) nonvolatileRegisters
-
-popNonvolatileRegs :: [AsmInstr]
-popNonvolatileRegs = Prelude.map (\reg -> Pop (Reg reg)) . reverse $ nonvolatileRegisters
-
-
 genInstrs :: Label -> (IRInstr, LiveMap) -> CGMonad ()
 genInstrs lbl (i, lm) = case i of
     IRAss op dst larg rarg -> if dst `M.notMember` lm 
@@ -118,7 +111,7 @@ genInstrs lbl (i, lm) = case i of
             addInstr $ genMovOrLea dstMem argMem
     IRLabel l -> addInstr $ Lbl l
     IRRet addr -> do
-        let popReg = popNonvolatileRegs
+        popReg <- popNonvolatileRegs
         case addr of
             NoRet -> addInstrs $ popReg ++ [ Leave
                                             , Ret]
@@ -159,6 +152,17 @@ callStringFunction lbl lm larg rarg = do
     prepareRegisterArgs [larg, rarg] lm
     callFunc lbl
     restoreRegisters
+
+
+pushNonvolatileRegs :: CGMonad [AsmInstr]
+pushNonvolatileRegs = do
+    nru <- getUsedNonvolatileRegs
+    return $ Prelude.map (\reg -> Push (Reg reg)) nru
+
+popNonvolatileRegs :: CGMonad [AsmInstr]
+popNonvolatileRegs = do
+    nru <- getUsedNonvolatileRegs
+    return $ Prelude.map (\reg -> Pop (Reg reg)) . reverse $ nru
 
 
 addMemSwaps :: Label -> Label -> CGMonad ()
@@ -275,7 +279,7 @@ pushRegister reg = do
     tmpMem <- pushStackLoc
     when (reg `M.member` r2v) $ do
         let var = r2v ! reg
-        moveVar var tmpMem regMem
+        remapVar var tmpMem regMem
     addInstr $ Push regMem
 
 popRegister :: CGReg -> CGMonad ()
@@ -287,7 +291,7 @@ popRegister reg = do
     let filteredV2m = M.filter (== csl) v2m
     unless (M.null filteredV2m) $ do
         let (var, _) = M.elemAt 0 filteredV2m
-        moveVar var regMem csl
+        remapVar var regMem csl
     addInstr $ Pop regMem
 
 pushRegisters :: [CGReg] -> CGMonad ()
@@ -325,9 +329,9 @@ addFuncPrologue :: Label -> CGMonad ()
 addFuncPrologue lbl = do
     cms@CGMS {generatedCode = gc} <- getMs lbl
     ls <- getLocSize
-    let alignedLs = ls - 8
+    pushRegs <- pushNonvolatileRegs
+    let alignedLs = ls - ((toInteger $ length pushRegs) `mod` 2) * 8
     let (funcLbl:restInstr) = reverse gc
-    let pushRegs = pushNonvolatileRegs
     let newGc = [ funcLbl 
                 , Push (Reg RBP)
                 , genMovOrLea (Reg RBP) (Reg RSP) ] ++ 
@@ -399,6 +403,7 @@ firstPass (b:bs) visited
         resetStackLoc    
         v1 <- passOnFunc firstPassOnBlock (S.singleton b) visited
         addFuncPrologue b
+        saveCurrentNru b
         firstPass bs v1
 
 secondPass :: [Label] -> Set Label -> CGMonad ()
@@ -406,6 +411,7 @@ secondPass [] _ = return ()
 secondPass (b:bs) visited
     | b `S.member` visited = secondPass bs visited
     | otherwise = do
+        restoreNru b
         v1 <- passOnFunc secondPassOnBlock (S.singleton b) visited
         secondPass bs v1
 

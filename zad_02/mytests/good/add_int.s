@@ -10,8 +10,6 @@ main:
     pushq %RBX
     pushq %R12
     pushq %R13
-    pushq %R14
-    pushq %R15
     call f
     movq %RAX, %RBX
     call f
@@ -31,8 +29,6 @@ main:
     movq %RBX, %RDI
     call printInt
     movq $0, %RAX
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
@@ -41,17 +37,7 @@ main:
 f:
     pushq %RBP
     movq %RSP, %RBP
-    addq $-8, %RSP
-    pushq %RBX
-    pushq %R12
-    pushq %R13
-    pushq %R14
-    pushq %R15
+    addq $0, %RSP
     movq $10, %RAX
-    popq %R15
-    popq %R14
-    popq %R13
-    popq %R12
-    popq %RBX
     leave
     ret

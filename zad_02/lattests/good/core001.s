@@ -18,8 +18,6 @@ main:
     pushq %RBX
     pushq %R12
     pushq %R13
-    pushq %R14
-    pushq %R15
     movq $10, %RDI
     call fac
     movq %RAX, %RBX
@@ -73,8 +71,6 @@ main:
     leaq .str_2, %RDI
     call printString
     movq $0, %RAX
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
@@ -87,8 +83,6 @@ fac:
     pushq %RBX
     pushq %R12
     pushq %R13
-    pushq %R14
-    pushq %R15
     movq $1, %RBX
     movq %RDI, %R12
     movq $1, %R13
@@ -110,8 +104,6 @@ fac:
     jmp .lbl_3
 .lbl_5:
     movq %RBX, %RAX
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
@@ -124,8 +116,6 @@ rfac:
     pushq %RBX
     pushq %R12
     pushq %R13
-    pushq %R14
-    pushq %R15
     cmpq $0, %RDI
     je .t_lbl_2
     movq %RDI, %RBX
@@ -134,8 +124,6 @@ rfac:
     jmp .lbl_6
 .lbl_6:
     movq $1, %RAX
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
@@ -150,16 +138,12 @@ rfac:
     movq %RBX, %R12
     imulq %R13, %R12
     movq %R12, %RAX
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
     leave
     ret
 .lbl_8:
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
@@ -172,8 +156,6 @@ mfac:
     pushq %RBX
     pushq %R12
     pushq %R13
-    pushq %R14
-    pushq %R15
     cmpq $0, %RDI
     je .t_lbl_3
     movq %RDI, %RBX
@@ -182,8 +164,6 @@ mfac:
     jmp .lbl_9
 .lbl_9:
     movq $1, %RAX
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
@@ -198,16 +178,12 @@ mfac:
     movq %RBX, %R12
     imulq %R13, %R12
     movq %R12, %RAX
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
     leave
     ret
 .lbl_11:
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
@@ -220,8 +196,6 @@ nfac:
     pushq %RBX
     pushq %R12
     pushq %R13
-    pushq %R14
-    pushq %R15
     cmpq $0, %RDI
     jne .t_lbl_4
     jmp .lbl_13
@@ -237,8 +211,6 @@ nfac:
     movq %R13, %R12
     imulq %RBX, %R12
     movq %R12, %RAX
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
@@ -246,16 +218,12 @@ nfac:
     ret
 .lbl_13:
     movq $1, %RAX
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
     leave
     ret
 .lbl_14:
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX
@@ -266,11 +234,6 @@ ifac:
     movq %RSP, %RBP
     addq $-8, %RSP
     pushq %RBX
-    pushq %R12
-    pushq %R13
-    pushq %R14
-    pushq %R15
-    movq %RDI, 0(%RSP)
     pushq %RDI
     movq $1, %RDI
     movq 0(%RSP), %RSI
@@ -279,22 +242,17 @@ ifac:
     addq $8, %RSP
     movq %RAX, %RBX
     movq %RBX, %RAX
-    popq %R15
-    popq %R14
-    popq %R13
-    popq %R12
     popq %RBX
     leave
     ret
 ifac2f:
     pushq %RBP
     movq %RSP, %RBP
-    addq $-8, %RSP
+    addq $0, %RSP
     pushq %RBX
     pushq %R12
     pushq %R13
     pushq %R14
-    pushq %R15
     cmpq %RSI, %RDI
     je .t_lbl_5
     movq %RDI, %RBX
@@ -306,7 +264,6 @@ ifac2f:
     jmp .lbl_15
 .lbl_15:
     movq %R12, %RAX
-    popq %R15
     popq %R14
     popq %R13
     popq %R12
@@ -321,7 +278,6 @@ ifac2f:
     jmp .lbl_17
 .lbl_17:
     movq $1, %RAX
-    popq %R15
     popq %R14
     popq %R13
     popq %R12
@@ -349,7 +305,6 @@ ifac2f:
     movq %R13, %RBX
     imulq %R14, %RBX
     movq %RBX, %RAX
-    popq %R15
     popq %R14
     popq %R13
     popq %R12

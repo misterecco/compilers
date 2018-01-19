@@ -26,7 +26,7 @@ initialCGState :: LiveState -> [Label] -> CGState
 initialCGState (LS _ lm bl) ord = do
     let initMss = M.fromList $ Prelude.map (\lbl -> (lbl, initialMs (bl ! lbl))) ord
     let initMainMs = initMss ! "main"
-    CGS bl lm M.empty 0 0 initMainMs initMss M.empty (-8)
+    CGS bl lm M.empty 0 0 initMainMs initMss M.empty (-8) S.empty M.empty
 
 initialMs :: LiveBlock -> CGMachineState
 initialMs (LB _phi instrs _nb _pb) = CGMS M.empty M.empty instrs [] 0
@@ -125,12 +125,35 @@ freshStackLoc = do
 resetStackLoc :: CGMonad ()
 resetStackLoc = do
     st <- get
-    put $ st {nextStackLoc = -8}    
+    put $ st {nextStackLoc = -8, nonvolatileRegsUsed = S.empty}    
 
 getLocSize :: CGMonad Integer
 getLocSize = do
     CGS {nextStackLoc = nloc} <- get
     return $ if nloc `mod` 16 == 8 then nloc + 8 else nloc
+
+addNonvolatileReg :: CGReg -> CGMonad ()
+addNonvolatileReg reg = do
+    st@CGS {nonvolatileRegsUsed = nru} <- get
+    put $ st {nonvolatileRegsUsed = S.insert reg nru}
+
+getUsedNonvolatileRegs :: CGMonad [CGReg]
+getUsedNonvolatileRegs = do
+    CGS {nonvolatileRegsUsed = nru} <- get
+    return $ S.toList nru
+
+saveCurrentNru :: Label -> CGMonad ()
+saveCurrentNru lbl = do
+    st@CGS {blToNru = btn} <- get
+    nru <- getUsedNonvolatileRegs
+    put $ st {blToNru = M.insert lbl nru btn}
+
+restoreNru :: Label -> CGMonad ()
+restoreNru lbl = do
+    st@CGS {blToNru = nruMap} <- get
+    let newNru = S.fromList $ nruMap ! lbl
+    put $ st {nonvolatileRegsUsed = newNru}
+
 
 addInstr :: AsmInstr -> CGMonad ()
 addInstr instr = do
@@ -178,6 +201,7 @@ getFreshRegister var = do
     let reg = S.elemAt 0 freeRegisters
     let mem = Reg reg
     addVarMapping var mem
+    when (reg `elem` nonvolatileRegisters) $ addNonvolatileReg reg
     return mem
 
 addVarMapping :: IRAddr -> CGMem -> CGMonad ()
@@ -235,6 +259,11 @@ spill newVar lm = if M.null lm
 moveVar :: IRAddr -> CGMem -> CGMem -> CGMonad ()
 moveVar var dst src = do
     addInstr $ genMovOrLea dst src
+    remVarMapping var
+    addVarMapping var dst
+
+remapVar :: IRAddr -> CGMem -> CGMem -> CGMonad ()
+remapVar var dst src = do
     remVarMapping var
     addVarMapping var dst
 
