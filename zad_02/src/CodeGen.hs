@@ -9,6 +9,7 @@ import Live ( LiveMap, LiveState(..), LiveBlock(LB) )
 import CGDef
 import CGState
 import CFG ( Phi )
+import PeepHole
 
 
 type MemMap = Map CGMem CGMem
@@ -448,7 +449,8 @@ genCode ord = do
     secondPass ord S.empty
     prologue <- generatePrologue
     functionsCode <- collectAllCode ord
-    return $ prologue ++ functionsCode
+    let code = prologue ++ functionsCode
+    return $ optimizePeepHole code
 
 generateAsm :: LiveState -> [Label] -> [AsmInstr]
 generateAsm ls ord = evalState (genCode ord) (initialCGState ls ord)

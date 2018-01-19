@@ -94,17 +94,20 @@ readString:
 	xorl	%eax, %eax
 	movq	$0, 16(%rsp)
 	call	getline@PLT
+	testq	%rax, %rax
+	je	.L11
 	movq	8(%rsp), %rdx
+	movb	$0, -1(%rdx,%rax)
+.L11:
 	movq	24(%rsp), %rcx
 	xorq	%fs:40, %rcx
-	movb	$0, -1(%rdx,%rax)
 	movq	8(%rsp), %rax
-	jne	.L13
+	jne	.L17
 	addq	$40, %rsp
 	.cfi_remember_state
 	.cfi_def_cfa_offset 8
 	ret
-.L13:
+.L17:
 	.cfi_restore_state
 	call	__stack_chk_fail@PLT
 	.cfi_endproc

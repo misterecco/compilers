@@ -11,19 +11,42 @@
 main:
 .LFB11:
 	.cfi_startproc
-	leaq	.LC0(%rip), %rdi
-	subq	$8, %rsp
+	pushq	%r12
 	.cfi_def_cfa_offset 16
+	.cfi_offset 12, -16
+	pushq	%rbp
+	.cfi_def_cfa_offset 24
+	.cfi_offset 6, -24
+	xorl	%eax, %eax
+	pushq	%rbx
+	.cfi_def_cfa_offset 32
+	.cfi_offset 3, -32
+	call	readInt@PLT
+	leaq	.LC0(%rip), %rdi
+	movl	%eax, %r12d
 	call	printString@PLT
 	xorl	%eax, %eax
 	call	readString@PLT
+	movq	%rax, %rbx
+	xorl	%eax, %eax
+	call	readString@PLT
+	movl	%r12d, %edi
+	movq	%rax, %rbp
+	call	printInt@PLT
+	movq	%rbp, %rsi
+	movq	%rbx, %rdi
+	call	__concat__@PLT
 	leaq	.LC1(%rip), %rdi
 	movq	%rax, %rsi
 	call	__concat__@PLT
 	movq	%rax, %rdi
 	call	printString@PLT
+	popq	%rbx
+	.cfi_def_cfa_offset 24
 	xorl	%eax, %eax
-	addq	$8, %rsp
+	popq	%rbp
+	.cfi_def_cfa_offset 16
+	popq	%r12
 	.cfi_def_cfa_offset 8
 	ret
 	.cfi_endproc

@@ -27,7 +27,9 @@ char* readString() {
     size_t len = 0;
 
     size_t size = getline(&buffer, &len, stdin);
-    buffer[size-1] = '\0';
+    if (size > 0) {
+        buffer[size-1] = '\0';
+    }
 
     return buffer;
 }
