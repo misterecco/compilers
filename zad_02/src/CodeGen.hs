@@ -23,34 +23,39 @@ genInstrs lbl (i, lm) = case i of
             IRStr -> do
                 callStringFunction "__concat__" lm larg rarg
                 dstMem <- getMemoryLoc dst lm
-                addInstr $ genMovOrLea dstMem (Reg RAX)
+                addInstrs $ genMovOrLea dstMem (Reg RAX)
             IRInt -> do
                 dstMem <- getMemoryLoc dst lm
                 largMem <- getMemoryLoc larg lm
                 rargMem <- getMemoryLoc rarg lm
                 case op of
-                    IRAdd -> addInstrs [ genMovOrLea dstMem largMem
-                                        , Add dstMem rargMem ]
-                    IRSub -> addInstrs [ genMovOrLea dstMem largMem
-                                        , Sub dstMem rargMem ]
-                    IRMul -> addInstrs [ genMovOrLea dstMem largMem
-                                        , Imul dstMem rargMem ]
+                    IRAdd -> do
+                        addInstrs $ genMovOrLea dstMem largMem
+                        addInstr $ Add dstMem rargMem
+                    IRSub -> do
+                        addInstrs $ genMovOrLea dstMem largMem
+                        addInstr $ Sub dstMem rargMem
+                    IRMul -> do
+                        addInstrs $ genMovOrLea dstMem largMem
+                        addInstr $ Imul dstMem rargMem
                     IRDiv -> do
-                        addInstrs [ genMovOrLea (Reg RAX) largMem
-                                  , Cqo ]
+                        addInstrs $ genMovOrLea (Reg RAX) largMem
+                        addInstr Cqo
                         case rargMem of
-                            Lit _ -> addInstrs [ genMovOrLea (Reg R10) rargMem
-                                               , Idiv (Reg R10) ]
+                            Lit _ -> do
+                                addInstrs $ genMovOrLea (Reg R10) rargMem
+                                addInstr $ Idiv (Reg R10)
                             _ -> addInstr $ Idiv rargMem
-                        addInstr $ genMovOrLea dstMem (Reg RAX)
+                        addInstrs $ genMovOrLea dstMem (Reg RAX)
                     IRMod -> do
-                        addInstrs [ genMovOrLea (Reg RAX) largMem
-                                  , Cqo ]
+                        addInstrs $ genMovOrLea (Reg RAX) largMem
+                        addInstr $ Cqo
                         case rargMem of
-                            Lit _ -> addInstrs [ genMovOrLea (Reg R10) rargMem
-                                               , Idiv (Reg R10) ]
+                            Lit _ -> do
+                                addInstrs $ genMovOrLea (Reg R10) rargMem
+                                addInstr $ Idiv (Reg R10)
                             _ -> addInstr $ Idiv rargMem
-                        addInstr $ genMovOrLea dstMem (Reg RDX)
+                        addInstrs $ genMovOrLea dstMem (Reg RDX)
             _ -> return ()
     IRSAss op dst arg -> if dst `M.notMember` lm
         then return ()
@@ -58,10 +63,12 @@ genInstrs lbl (i, lm) = case i of
             dstMem <- getMemoryLoc dst lm
             argMem <- getMemoryLoc arg lm
             case op of
-                IRNot -> addInstrs [ genMovOrLea dstMem (intLiteral 1)
-                                    , Sub dstMem argMem ]
-                IRNeg -> addInstrs [ genMovOrLea dstMem argMem
-                                    , Imul dstMem (intLiteral (-1)) ]
+                IRNot -> do 
+                    addInstrs $ genMovOrLea dstMem (intLiteral 1)
+                    addInstr $ Sub dstMem argMem
+                IRNeg -> do 
+                    addInstrs $ genMovOrLea dstMem argMem
+                    addInstr $ Imul dstMem (intLiteral (-1))
     IRCall dst func args -> do
         let (regArgs, stackArgs) = splitAt 6 args
         preservedRegs <- preserveRegisters
@@ -74,7 +81,7 @@ genInstrs lbl (i, lm) = case i of
             then return ()
             else do
                 dstMem <- getMemoryLoc dst lm
-                addInstr $ genMovOrLea dstMem (Reg RAX)
+                addInstrs $ genMovOrLea dstMem (Reg RAX)
     IRIf cmp larg rarg lTrue lFalse -> do
         tmpLbl <- freshLbl
         case addrType larg of
@@ -86,7 +93,7 @@ genInstrs lbl (i, lm) = case i of
                 rargMem <- getMemoryLoc rarg lm                
                 case largMem of
                     Lit _ -> do
-                        addInstr $ genMovOrLea (Reg RAX) largMem
+                        addInstrs $ genMovOrLea (Reg RAX) largMem
                         addInstr $ Cmp (Reg RAX) rargMem
                     _ -> addInstr $ Cmp largMem rargMem
         case cmp of
@@ -109,7 +116,7 @@ genInstrs lbl (i, lm) = case i of
         else do
             dstMem <- getMemoryLoc dst lm
             argMem <- getMemoryLoc src lm
-            addInstr $ genMovOrLea dstMem argMem
+            addInstrs $ genMovOrLea dstMem argMem
     IRLabel l -> addInstr $ Lbl l
     IRRet addr -> do
         popReg <- popNonvolatileRegs
@@ -118,7 +125,7 @@ genInstrs lbl (i, lm) = case i of
                                             , Ret]
             _     -> do
                         mem <- getMemoryLoc addr lm
-                        addInstrs $ (genMovOrLea (Reg RAX) mem):popReg ++ 
+                        addInstrs $ (genMovOrLea (Reg RAX) mem) ++ popReg ++ 
                                                 [ Leave
                                                 , Ret ]
     IRParam var int -> if var `M.notMember` lm
@@ -233,7 +240,7 @@ addMov :: Map CGMem CGMem -> CGMonad MemMap
 addMov mapping = do
     let ks = S.fromList $ M.elems mapping
     let leaves = M.filterWithKey (\k _ -> S.notMember k ks) mapping
-    mapM_ (\(dst, src) -> addInstr $ genMovOrLea dst src) (M.toList leaves)
+    mapM_ (\(dst, src) -> addInstrs $ genMovOrLea dst src) (M.toList leaves)
     return $ mapping M.\\ leaves
 
 
@@ -304,7 +311,7 @@ popRegisters = (mapM_ popRegister) . reverse
 prepareRegisterArgs :: [IRAddr] -> LiveMap -> CGMonad ()
 prepareRegisterArgs args lm = mapM_ (\(arg, reg) -> do
     argMem <- getMemoryLoc arg lm
-    addInstr $ genMovOrLea (Reg reg) argMem) (zip args paramRegisters)
+    addInstrs $ genMovOrLea (Reg reg) argMem) (zip args paramRegisters)
 
 pushRestArgs :: LiveMap -> [IRAddr] -> CGMonad ()
 pushRestArgs lm = (mapM_ (pushVariable lm)) . reverse
@@ -336,8 +343,8 @@ addFuncPrologue lbl = do
     let alignedLs = ls - ((toInteger $ length pushRegs) `mod` 2) * 8
     let (funcLbl:restInstr) = reverse gc
     let newGc = [ funcLbl 
-                , Push (Reg RBP)
-                , genMovOrLea (Reg RBP) (Reg RSP) ] ++ 
+                , Push (Reg RBP) ] ++
+                (genMovOrLea (Reg RBP) (Reg RSP)) ++ 
                 (Add (Reg RSP) (intLiteral alignedLs)):pushRegs ++
                 restInstr
     setMs lbl $ cms {generatedCode = reverse newGc}

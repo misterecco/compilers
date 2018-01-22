@@ -186,10 +186,14 @@ removeNextInstr = do
     setCurrentMs $ cms {nextInstrs = is}
 
 
-genMovOrLea :: CGMem -> CGMem -> AsmInstr
+genMovOrLea :: CGMem -> CGMem -> [AsmInstr]
 genMovOrLea dst src = case src of
-    Obj _ -> Lea dst src
-    _ -> Mov dst src
+    Obj _ -> [ Lea dst src ]
+    Mem {} -> case dst of
+        Mem {} -> [ Mov (Reg R10) src
+                 , Mov dst (Reg R10) ]
+        _     -> [ Mov dst src ]
+    _ -> [ Mov dst src ]
 
 
 intLiteral :: Integer -> CGMem
@@ -262,7 +266,7 @@ spill newVar lm = if M.null lm
 
 moveVar :: IRAddr -> CGMem -> CGMem -> CGMonad ()
 moveVar var dst src = do
-    addInstr $ genMovOrLea dst src
+    addInstrs $ genMovOrLea dst src
     remVarMapping var
     addVarMapping var dst
 

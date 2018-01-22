@@ -1,0 +1,22 @@
+int main() {
+    int a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z;
+
+    while (i < 10) {
+        a = a + 1;
+        b = a;
+        c = a + b;
+        d = a + c;
+        e = d * d;
+        f = a + e;
+        g = c + f;
+        h = a + b;
+        i = f + f;
+        j = e;
+        k = z;
+        l = k;
+    }
+
+    printInt(a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + u + v + w + v + x + y + z);
+
+    return 0;
+}
