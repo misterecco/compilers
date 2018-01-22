@@ -37,7 +37,6 @@ main:
 f:
     pushq %RBP
     movq %RSP, %RBP
-    addq $0, %RSP
     movq $10, %RAX
     leave
     ret

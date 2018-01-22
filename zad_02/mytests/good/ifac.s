@@ -12,8 +12,6 @@ main:
     pushq %RBX
     pushq %R12
     pushq %R13
-    pushq %R14
-    pushq %R15
     movq $1, %RBX
     movq $1, %R12
     jmp .lbl_1
@@ -39,8 +37,6 @@ main:
     jmp .lbl_0
 .lbl_2:
     movq $0, %RAX
-    popq %R15
-    popq %R14
     popq %R13
     popq %R12
     popq %RBX

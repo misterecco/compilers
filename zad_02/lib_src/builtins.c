@@ -15,13 +15,6 @@ void error() {
     exit(1);
 }
 
-long long readInt() {
-    long long x;
-    scanf("%lld", &x);
-
-    return x;
-}
-
 char* readString() {
     char* buffer = NULL;
     size_t len = 0;
@@ -32,6 +25,16 @@ char* readString() {
     }
 
     return buffer;
+}
+
+long long readInt() {
+    char* buffer = readString();
+    long long x;
+
+    sscanf(buffer, "%lld", &x);
+    free(buffer);
+
+    return x;
 }
 
 char* __concat__(const char* lhs, const char* rhs) {

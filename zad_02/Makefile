@@ -15,5 +15,8 @@ clean:
 	# make -C $(SOURCE) distclean
 	rm -rf $(SOURCE)/dist
 
-mrproper: clean
+delete_execs:
+	find . -type f -executable -delete
+
+mrproper: clean delete_execs
 	rm $(ALL)

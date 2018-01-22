@@ -1,0 +1,43 @@
+int main() {
+  int a, b, c, d, e, f, g, h, i, j, k, l, m;
+  a = readInt();
+  b = readInt();
+  c = readInt();
+  d = readInt();
+  e = readInt();
+  f = readInt();
+  g = readInt();
+  h = readInt();
+  i = readInt();
+  j = readInt();
+  k = readInt();
+  l = readInt();
+  m = readInt();
+
+  printSum(h, f, h, c, k, k, i, c);
+  printSum(g, e, d, m, m, a, l, h);
+  printSum(e, d, i, f, i, i, b, j);
+  printSum(m, m, h, a, a, b, m, d);
+  printSum(e, l, e, h, f, a, h, k);
+  printSum(c, c, f, a, g, k, i, g);
+  printSum(l, b, h, e, h, b, k, b);
+  printSum(c, k, m, f, f, d, d, i);
+  printSum(c, b, f, c, i, k, k, g);
+  printSum(e, f, a, j, e, e, b, f);
+  printSum(h, f, l, i, d, g, l, g);
+  printSum(h, a, g, f, f, f, h, h);
+  printSum(g, c, f, m, f, a, a, g);
+  printSum(a, b, b, f, m, g, f, f);
+  printSum(g, f, j, l, j, f, i, l);
+  printSum(b, d, i, i, i, h, k, g);
+  printSum(k, m, f, l, j, l, a, l);
+  printSum(j, m, m, d, i, b, h, l);
+  printSum(c, e, b, c, c, b, m, l);
+  printSum(g, j, j, g, f, i, h, d);
+
+  return 0;
+}
+
+void printSum(int a, int b, int c, int d, int e, int f, int g, int h) {
+  printInt(a + b + c + d + e + f + g + h);
+}

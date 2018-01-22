@@ -1,0 +1,31 @@
+int main() {
+    int x;
+    
+    x = f(1,2,3,4,5,6,7,8,9,10);
+
+    printInt(x);
+
+    x = h(1,2,3,4,5,6,7,8,9,10);
+
+    printInt(x);
+
+    x = g(2, 4, 6, 8, 10, 12);
+
+    printInt(x);
+
+    return 0;
+}
+
+
+int f(int a, int b, int c, int d, int e, int f, int g, int h, int i, int j) {
+    return a + b + c + d + e + f + g + h + i + j;
+}
+
+int h(int a, int b, int c, int d, int e, int f, int g, int h, int i, int j) {
+    return a * b * c * d * e * f * g * h * i * j;
+}
+
+
+int g(int a, int b, int c, int d, int e, int f) {
+    return (a + b + c + d + e + f) / 6;
+}

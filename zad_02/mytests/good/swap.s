@@ -1,4 +1,4 @@
-.section .rodata
+.section .data
 .section .text
     .p2align 4,,15
     .globl main
@@ -8,10 +8,6 @@ main:
     movq %RSP, %RBP
     pushq %RBX
     pushq %R12
-    pushq %R13
-    pushq %R14
-    pushq %R15
-    subq $-8, %RSP
     movq $4, %RAX
     cmpq $6, %RAX
     jl .t_lbl_0
@@ -19,8 +15,8 @@ main:
 .t_lbl_0:
     jmp .lbl_0
 .lbl_0:
-    movq $10, %R12
     movq $20, %RBX
+    movq $10, %R12
     jmp .lbl_2
 .lbl_1:
     movq $1, %RBX
@@ -32,9 +28,6 @@ main:
     movq %R12, %RDI
     call printInt
     movq $0, %RAX
-    popq %R15
-    popq %R14
-    popq %R13
     popq %R12
     popq %RBX
     leave

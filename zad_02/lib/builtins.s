@@ -45,43 +45,11 @@ error:
 	.cfi_endproc
 .LFE26:
 	.size	error, .-error
-	.section	.rodata.str1.1
-.LC2:
-	.string	"%lld"
-	.text
-	.p2align 4,,15
-	.globl	readInt
-	.type	readInt, @function
-readInt:
-.LFB27:
-	.cfi_startproc
-	subq	$24, %rsp
-	.cfi_def_cfa_offset 32
-	leaq	.LC2(%rip), %rdi
-	movq	%fs:40, %rax
-	movq	%rax, 8(%rsp)
-	xorl	%eax, %eax
-	movq	%rsp, %rsi
-	call	__isoc99_scanf@PLT
-	movq	8(%rsp), %rdx
-	xorq	%fs:40, %rdx
-	movq	(%rsp), %rax
-	jne	.L9
-	addq	$24, %rsp
-	.cfi_remember_state
-	.cfi_def_cfa_offset 8
-	ret
-.L9:
-	.cfi_restore_state
-	call	__stack_chk_fail@PLT
-	.cfi_endproc
-.LFE27:
-	.size	readInt, .-readInt
 	.p2align 4,,15
 	.globl	readString
 	.type	readString, @function
 readString:
-.LFB28:
+.LFB27:
 	.cfi_startproc
 	subq	$40, %rsp
 	.cfi_def_cfa_offset 48
@@ -95,24 +63,83 @@ readString:
 	movq	$0, 16(%rsp)
 	call	getline@PLT
 	testq	%rax, %rax
-	je	.L11
+	je	.L7
 	movq	8(%rsp), %rdx
 	movb	$0, -1(%rdx,%rax)
-.L11:
+.L7:
 	movq	24(%rsp), %rcx
 	xorq	%fs:40, %rcx
 	movq	8(%rsp), %rax
-	jne	.L17
+	jne	.L13
 	addq	$40, %rsp
 	.cfi_remember_state
 	.cfi_def_cfa_offset 8
 	ret
-.L17:
+.L13:
+	.cfi_restore_state
+	call	__stack_chk_fail@PLT
+	.cfi_endproc
+.LFE27:
+	.size	readString, .-readString
+	.section	.rodata.str1.1
+.LC2:
+	.string	"%lld"
+	.text
+	.p2align 4,,15
+	.globl	readInt
+	.type	readInt, @function
+readInt:
+.LFB28:
+	.cfi_startproc
+	pushq	%rbp
+	.cfi_def_cfa_offset 16
+	.cfi_offset 6, -16
+	pushq	%rbx
+	.cfi_def_cfa_offset 24
+	.cfi_offset 3, -24
+	subq	$40, %rsp
+	.cfi_def_cfa_offset 64
+	movq	stdin(%rip), %rdx
+	leaq	16(%rsp), %rbp
+	leaq	8(%rsp), %rdi
+	movq	$0, 8(%rsp)
+	movq	%fs:40, %rax
+	movq	%rax, 24(%rsp)
+	xorl	%eax, %eax
+	movq	%rbp, %rsi
+	movq	$0, 16(%rsp)
+	call	getline@PLT
+	testq	%rax, %rax
+	je	.L15
+	movq	8(%rsp), %rdx
+	movb	$0, -1(%rdx,%rax)
+.L15:
+	movq	8(%rsp), %rbx
+	leaq	.LC2(%rip), %rsi
+	movq	%rbp, %rdx
+	xorl	%eax, %eax
+	movq	%rbx, %rdi
+	call	__isoc99_sscanf@PLT
+	movq	%rbx, %rdi
+	call	free@PLT
+	movq	24(%rsp), %rcx
+	xorq	%fs:40, %rcx
+	movq	16(%rsp), %rax
+	jne	.L21
+	addq	$40, %rsp
+	.cfi_remember_state
+	.cfi_def_cfa_offset 24
+	popq	%rbx
+	.cfi_def_cfa_offset 16
+	popq	%rbp
+	.cfi_def_cfa_offset 8
+	ret
+.L21:
 	.cfi_restore_state
 	call	__stack_chk_fail@PLT
 	.cfi_endproc
 .LFE28:
-	.size	readString, .-readString
+	.size	readInt, .-readInt
 	.p2align 4,,15
 	.globl	__concat__
 	.type	__concat__, @function

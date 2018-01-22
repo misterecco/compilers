@@ -64,12 +64,12 @@ genInstrs lbl (i, lm) = case i of
                                     , Imul dstMem (intLiteral (-1)) ]
     IRCall dst func args -> do
         let (regArgs, stackArgs) = splitAt 6 args
-        preserveRegisters
+        preservedRegs <- preserveRegisters
         pushRestArgs lm stackArgs
         prepareRegisterArgs regArgs lm
         callFunc func
         popRestArgs stackArgs
-        restoreRegisters
+        restoreRegisters preservedRegs
         if dst == NoRet || dst `M.notMember` lm
             then return ()
             else do
@@ -132,7 +132,7 @@ genInstrs lbl (i, lm) = case i of
                         5 -> Reg R8
                         6 -> Reg R9
                         _ -> do
-                            let offset = (int - 6) * 8 + 16
+                            let offset = (int - 7) * 8 + 16
                             Mem RBP offset
             addVarMapping var mem
 
@@ -149,10 +149,10 @@ callFunc lbl = do
 
 callStringFunction :: Label -> LiveMap -> IRAddr -> IRAddr -> CGMonad ()
 callStringFunction lbl lm larg rarg = do
-    preserveRegisters
+    preservedRegs <- preserveRegisters
     prepareRegisterArgs [larg, rarg] lm
     callFunc lbl
-    restoreRegisters
+    restoreRegisters preservedRegs
 
 
 pushNonvolatileRegs :: CGMonad [AsmInstr]
@@ -180,25 +180,24 @@ calculateMemMapping src dst = do
     calcMap v2mSrc phi (M.toList v2mDst)
   where
     calcMap :: Map IRAddr CGMem -> Phi -> [(IRAddr, CGMem)] -> CGMonad MemMap
-    calcMap v2mSrc phi = foldM (\acc (var, mem) ->
-        if var `M.member` v2mSrc
-            then do
-                let srcMem = v2mSrc ! var
+    calcMap v2mSrc phi = foldM (\acc (var, mem) -> do
+        let pm = findPhiMapping phi var
+        case pm of
+            Nothing -> if var `M.member` v2mSrc
+                then do
+                    let srcMem = v2mSrc ! var
+                    return $ M.insert mem srcMem acc
+                else return acc
+            Just srcVar -> do
+                srcMem <- case srcVar of
+                    ImmInt int -> return $ intLiteral int
+                    ImmString str -> do
+                        lbl <- getStringLbl str
+                        return $ Obj lbl
+                    ImmBool b -> return $ boolLiteral b
+                    NoRet -> return $ intLiteral 0
+                    Indirect _ -> return $ v2mSrc ! srcVar
                 return $ M.insert mem srcMem acc
-            else do
-                let pm = findPhiMapping phi var
-                case pm of
-                    Nothing -> return acc
-                    Just srcVar -> do
-                        srcMem <- case srcVar of
-                            ImmInt int -> return $ intLiteral int
-                            ImmString str -> do
-                                lbl <- getStringLbl str
-                                return $ Obj lbl
-                            ImmBool b -> return $ boolLiteral b
-                            NoRet -> return $ intLiteral 0
-                            Indirect _ -> return $ v2mSrc ! srcVar
-                        return $ M.insert mem srcMem acc
             ) M.empty
     findPhiMapping :: Phi -> IRAddr -> Maybe IRAddr
     findPhiMapping phi var = case M.lookup var phi of
@@ -280,7 +279,7 @@ pushRegister reg = do
     tmpMem <- pushStackLoc
     when (reg `M.member` r2v) $ do
         let var = r2v ! reg
-        remapVar var tmpMem regMem
+        remapVar var tmpMem
     addInstr $ Push regMem
 
 popRegister :: CGReg -> CGMonad ()
@@ -292,7 +291,7 @@ popRegister reg = do
     let filteredV2m = M.filter (== csl) v2m
     unless (M.null filteredV2m) $ do
         let (var, _) = M.elemAt 0 filteredV2m
-        remapVar var regMem csl
+        remapVar var regMem
     addInstr $ Pop regMem
 
 pushRegisters :: [CGReg] -> CGMonad ()
@@ -319,11 +318,14 @@ getActiveVolatileRegs = do
     return $ Prelude.filter (\reg -> reg `M.member` r2v ) volatileRegisters
 
 
-preserveRegisters :: CGMonad ()
-preserveRegisters = getActiveVolatileRegs >>= pushRegisters
+preserveRegisters :: CGMonad [CGReg]
+preserveRegisters = do
+    regs <- getActiveVolatileRegs
+    pushRegisters regs
+    return regs
 
-restoreRegisters :: CGMonad ()
-restoreRegisters = getActiveVolatileRegs >>= popRegisters
+restoreRegisters :: [CGReg] -> CGMonad ()
+restoreRegisters = popRegisters
 
 
 addFuncPrologue :: Label -> CGMonad ()

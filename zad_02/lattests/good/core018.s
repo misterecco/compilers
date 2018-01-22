@@ -8,26 +8,27 @@ main:
     movq %RSP, %RBP
     pushq %RBX
     pushq %R12
+    pushq %R13
+    pushq %R14
     call readInt
     movq %RAX, %RBX
-    cmpq $10, %RBX
-    jg .t_lbl_0
-    jmp .lbl_1
-.t_lbl_0:
-    jmp .lbl_0
-.lbl_0:
-    movq %RBX, %R12
-    jmp .lbl_2
-.lbl_1:
-    movq $10, %RBX
-    movq $5, %R12
-    jmp .lbl_2
-.lbl_2:
-    movq %RBX, %RDI
+    call readString
+    movq %RAX, %R12
+    call readString
+    movq %RAX, %R13
+    movq %RBX, %R14
+    subq $5, %R14
+    movq %R14, %RDI
     call printInt
     movq %R12, %RDI
-    call printInt
+    movq %R13, %RSI
+    call __concat__
+    movq %RAX, %RBX
+    movq %RBX, %RDI
+    call printString
     movq $0, %RAX
+    popq %R14
+    popq %R13
     popq %R12
     popq %RBX
     leave

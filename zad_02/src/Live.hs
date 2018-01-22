@@ -9,6 +9,7 @@ import Data.Set as S hiding ( foldr )
 import Data.List ( intercalate )
 
 type LiveMap = Map IRAddr Integer
+type BlockProcess = (IRAddr -> [(Label, IRAddr)] -> Set IRAddr -> Set IRAddr)
 
 data LiveState = LS {
     blocks :: Map Label CFGBlock,
@@ -78,16 +79,17 @@ getLiveOut lbl = do
     B _ _ nb _ <- getBlock lbl
     nextIns <- mapM getLiveIn nb
     let outs = foldr S.union S.empty nextIns
-    foldM processBlock outs nb
+    outs1 <- foldM (processBlock minusDef) outs nb
+    foldM (processBlock plusArgs) outs1 nb
     where
-        processBlock :: Set IRAddr -> Label -> LiveMonad (Set IRAddr)
-        processBlock acc l = do
+        processBlock :: BlockProcess -> Set IRAddr -> Label -> LiveMonad (Set IRAddr)
+        processBlock blockFunc acc l = do
             B phi _ _ _ <- getBlock l
-            return $ foldrWithKey processKeyVal acc phi
-        processKeyVal :: IRAddr -> [(Label, IRAddr)] -> Set IRAddr -> Set IRAddr
-        processKeyVal k v a = do
-            let a1 = S.delete k a
-            foldr processAssignment a1 v
+            return $ foldrWithKey blockFunc acc phi
+        minusDef :: BlockProcess
+        minusDef k _v = S.delete k
+        plusArgs :: BlockProcess
+        plusArgs _k v a = foldr processAssignment a v
         processAssignment :: (Label, IRAddr) -> Set IRAddr -> Set IRAddr
         processAssignment (src, addr) acc = case addr of
             Indirect _ -> if lbl == src then S.insert addr acc else acc

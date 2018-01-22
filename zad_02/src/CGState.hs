@@ -154,6 +154,11 @@ restoreNru lbl = do
     let newNru = S.fromList $ nruMap ! lbl
     put $ st {nonvolatileRegsUsed = newNru}
 
+freeRegistersPool :: CGMonad (Set CGReg)
+freeRegistersPool = do
+    CGMS {regToVar = r2v} <- getCurrentMs
+    return $ S.difference registerPool (S.fromList (M.keys r2v))
+
 
 addInstr :: AsmInstr -> CGMonad ()
 addInstr instr = do
@@ -196,8 +201,7 @@ boolLiteral b = Lit $ CGBool b
 
 getFreshRegister :: IRAddr -> CGMonad CGMem
 getFreshRegister var = do
-    CGMS {regToVar = r2v} <- getCurrentMs
-    let freeRegisters = S.difference registerPool (S.fromList (M.keys r2v))
+    freeRegisters <- freeRegistersPool
     let reg = S.elemAt 0 freeRegisters
     let mem = Reg reg
     addVarMapping var mem
@@ -262,8 +266,8 @@ moveVar var dst src = do
     remVarMapping var
     addVarMapping var dst
 
-remapVar :: IRAddr -> CGMem -> CGMem -> CGMonad ()
-remapVar var dst src = do
+remapVar :: IRAddr -> CGMem -> CGMonad ()
+remapVar var dst = do
     remVarMapping var
     addVarMapping var dst
 
@@ -276,9 +280,11 @@ getMemoryLoc var lm = case var of
     ImmBool b -> return $ boolLiteral b
     NoRet -> return $ intLiteral 0
     Indirect _ -> do
-        CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
+        CGMS {varToMem = v2m} <- getCurrentMs
         case M.lookup var v2m of
-            Nothing -> if S.size registerPool == M.size r2v
-                then spill var lm
-                else getFreshRegister var
+            Nothing -> do
+                fr <- freeRegistersPool
+                if S.null fr
+                    then spill var lm
+                    else getFreshRegister var
             Just mem -> return mem
