@@ -240,6 +240,7 @@ ifac:
     subq $8, %RSP
     call ifac2f
     addq $8, %RSP
+    popq %RDI
     movq %RAX, %RBX
     movq %RBX, %RAX
     popq %RBX
@@ -248,7 +249,6 @@ ifac:
 ifac2f:
     pushq %RBP
     movq %RSP, %RBP
-    addq $0, %RSP
     pushq %RBX
     pushq %R12
     pushq %R13

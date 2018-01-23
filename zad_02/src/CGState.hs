@@ -250,10 +250,10 @@ spill newVar lm = if M.null lm
         CGMS {regToVar = r2v, varToMem = v2m} <- getCurrentMs
         let (_, v0) = M.elemAt 0 r2v
         let (var, maxInt) = M.foldrWithKey (\_ v (vm, mi) -> do
-            let varInt = lm ! v
-            if varInt > mi 
-                then (v, varInt) 
-                else (vm, mi)) (v0, 0) (M.filter (`M.member` lm) r2v)
+                let varInt = lm ! v
+                if varInt > mi 
+                    then (v, varInt) 
+                    else (vm, mi)) (v0, 0) (M.filter (`M.member` lm) r2v)
         if nvInt < maxInt 
             then do
                 newLoc <- freshStackLoc

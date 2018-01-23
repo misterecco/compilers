@@ -15,7 +15,6 @@ executable latc_x86_64
     AbsLatte, 
     ErrM, 
     LexLatte, 
-    AsmLatte, 
     ParLatte, 
     PreState,
     PrintLatte,
