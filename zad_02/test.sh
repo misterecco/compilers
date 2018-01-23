@@ -61,6 +61,9 @@ run_tests () {
     echo "-------------------------------------------"    
 }
 
+make mrproper
+make
+
 run_tests lattests/good test_good
 run_tests lattests/bad test_bad
 run_tests mytests/good test_good
