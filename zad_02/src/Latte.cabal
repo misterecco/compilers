@@ -9,7 +9,7 @@ executable latc_x86_64
     base >= 4, 
     mtl, 
     array, 
-    containers,
+    containers >= 0.5.11.0,
     process >= 1.2.0.0
   other-modules:      
     AbsLatte, 

@@ -6,9 +6,9 @@ Kompilator został napisany w języku **Haskell**, budowany jest
 przy użyciu narzędzia **cabal**.
 
 Wszystkie używane biblioteki zadeklarowane są w pliku `src/latte.cabal`. 
-Jedyna biblioteka, która na `students` nie jest zainstalowana standardowo 
-(albo jest w złej wersji) to `process`, którą można zainstalować przez wywołanie 
-`cabal install process`
+Jedyne biblioteki, która na `students` nie są zainstalowane standardowo 
+(albo są w złej wersji) to `process` i `containers`, które można zainstalować
+ przez wywołanie `cabal install process` oraz `cabal install containers`
 
 Projekt kompiluje się przez wywołanie `make` w głównym katalogu projektu.
 `make mrproper` usuwa wszystkie pliki wygenerowane w czasie kompilacji.

@@ -140,7 +140,7 @@ genInstrs lbl (i, lm) = case i of
 
 callFunc :: Label -> LiveMap -> [IRAddr] ->CGMonad ()
 callFunc lbl lm args = do
-    let (regArgs, stackArgs) = splitAt 6 args
+    let (regArgs, stackArgs) = Prelude.splitAt 6 args
     preservedRegs <- preserveRegisters
     shouldAlign <- pushRestArgs lm stackArgs
     prepareRegisterArgs regArgs lm
