@@ -344,7 +344,7 @@ addFuncPrologue lbl = do
     cms@CGMS {generatedCode = gc} <- getMs lbl
     ls <- getLocSize
     pushRegs <- pushNonvolatileRegs
-    let alignedLs = ls - ((toInteger $ length pushRegs) `mod` 2) * 8
+    let alignedLs = ls - (ls + (toInteger $ length pushRegs) * 8) `mod` 16
     let (funcLbl:restInstr) = reverse gc
     let newGc = [ funcLbl 
                 , Push (Reg RBP) ] ++

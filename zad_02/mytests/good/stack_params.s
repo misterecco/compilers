@@ -55,7 +55,7 @@ main:
 f:
     pushq %RBP
     movq %RSP, %RBP
-    addq $-24, %RSP
+    addq $-8, %RSP
     pushq %RBX
     pushq %R12
     pushq %R13
@@ -91,7 +91,7 @@ f:
 h:
     pushq %RBP
     movq %RSP, %RBP
-    addq $-24, %RSP
+    addq $-8, %RSP
     pushq %RBX
     pushq %R12
     pushq %R13
@@ -127,7 +127,7 @@ h:
 g:
     pushq %RBP
     movq %RSP, %RBP
-    addq $-24, %RSP
+    addq $-8, %RSP
     pushq %RBX
     pushq %R12
     pushq %R13

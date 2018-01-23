@@ -130,7 +130,7 @@ resetStackLoc = do
 getLocSize :: CGMonad Integer
 getLocSize = do
     CGS {nextStackLoc = nloc} <- get
-    return $ if nloc `mod` 16 == 8 then nloc + 8 else nloc
+    return $ nloc + 8
 
 addNonvolatileReg :: CGReg -> CGMonad ()
 addNonvolatileReg reg = do

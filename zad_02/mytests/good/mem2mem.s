@@ -6,7 +6,7 @@
 main:
     pushq %RBP
     movq %RSP, %RBP
-    addq $-280, %RSP
+    addq $-264, %RSP
     pushq %RBX
     pushq %R12
     pushq %R13

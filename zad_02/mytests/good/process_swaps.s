@@ -6,7 +6,7 @@
 processSwaps:
     pushq %RBP
     movq %RSP, %RBP
-    addq $-24, %RSP
+    addq $-8, %RSP
     pushq %RBX
     pushq %R12
     pushq %R13
