@@ -18,5 +18,5 @@ clean:
 delete_execs:
 	find . -type f -executable -delete
 
-mrproper: clean delete_execs
+mrproper: clean
 	rm $(ALL)

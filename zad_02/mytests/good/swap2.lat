@@ -1,5 +1,6 @@
 int main() {
-    return 0;
+  f(true, 50, 100);
+  return 0;
 }
 
 void f(boolean a, int b, int c) {

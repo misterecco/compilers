@@ -53,4 +53,4 @@ Optymalizacje:
     rejestórw
   - funkcja odkłada na stos tylko te rejestry spośród resjtrów callee-saved,
     które rzeczywiście są używane w tej funkcji 
-  - usuwanie martwego kodu
+  - eliminacja martwego kodu

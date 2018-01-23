@@ -6,6 +6,10 @@
 main:
     pushq %RBP
     movq %RSP, %RBP
+    movq $1, %RDI
+    movq $50, %RSI
+    movq $100, %RDX
+    call f
     movq $0, %RAX
     leave
     ret

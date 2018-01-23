@@ -235,9 +235,9 @@ ifac:
     addq $-8, %RSP
     pushq %RBX
     pushq %RDI
-    movq $1, %RDI
-    movq 0(%RSP), %RSI
     subq $8, %RSP
+    movq $1, %RDI
+    movq 8(%RSP), %RSI
     call ifac2f
     addq $8, %RSP
     popq %RDI

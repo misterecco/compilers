@@ -6,7 +6,7 @@
 main:
     pushq %RBP
     movq %RSP, %RBP
-    addq $-8, %RSP
+    addq $-24, %RSP
     pushq %RBX
     pushq %R12
     pushq %R13
@@ -28,232 +28,514 @@ main:
     subq $8, %RSP
     call readInt
     addq $8, %RSP
-    movq %RAX, %R11
+    popq %R11
+    movq %RAX, %RDI
+    pushq %RDI
     pushq %R11
     call readInt
-    movq %RAX, %R11
-    pushq %R11
-    subq $8, %RSP
-    call readInt
-    addq $8, %RSP
-    movq %RAX, %R11
-    pushq %R11
-    call readInt
-    movq %RAX, %R11
+    popq %R11
+    popq %RDI
+    movq %RAX, %RSI
+    pushq %RDI
+    pushq %RSI
     pushq %R11
     subq $8, %RSP
     call readInt
     addq $8, %RSP
-    movq %RAX, %R11
+    popq %R11
+    popq %RSI
+    popq %RDI
+    movq %RAX, %RCX
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
     pushq %R11
     call readInt
-    movq %RAX, %R11
+    popq %R11
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    movq %RAX, %R8
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
     pushq %R11
     subq $8, %RSP
     call readInt
     addq $8, %RSP
-    movq %RAX, %R11
+    popq %R11
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    movq %RAX, %R9
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    call readInt
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    movq %R8, -8(%RBP)
+    movq %RAX, %R8
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    call readInt
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    movq %R12, -16(%RBP)
+    movq %RAX, %R12
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
     pushq %R11
     pushq %R13
-    pushq 40(%RSP)
-    movq 56(%RSP), %RDI
-    movq 72(%RSP), %RSI
-    movq 56(%RSP), %RDX
+    pushq 32(%RSP)
+    movq 48(%RSP), %RDI
+    movq 16(%RSP), %RSI
+    movq 48(%RSP), %RDX
     movq %R13, %RCX
-    movq 32(%RSP), %R8
-    movq 32(%RSP), %R9
+    movq 24(%RSP), %R8
+    movq 24(%RSP), %R9
     call printSum
     addq $16, %RSP
-    pushq 40(%RSP)
-    pushq 16(%RSP)
-    movq 64(%RSP), %RDI
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 32(%RSP)
+    pushq 24(%RSP)
+    movq 56(%RSP), %RDI
     movq %R15, %RSI
     movq %R14, %RDX
+    movq %R12, %RCX
+    movq %R12, %R8
+    movq %RBX, %R9
+    call printSum
+    addq $16, %RSP
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq -8(%RBP)
+    pushq -16(%RBP)
+    movq %R15, %RDI
+    movq %R14, %RSI
+    movq 40(%RSP), %RDX
     movq 16(%RSP), %RCX
+    movq 40(%RSP), %R8
+    movq 40(%RSP), %R9
+    call printSum
+    addq $16, %RSP
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq %R14
+    pushq %R12
+    movq %R12, %RDI
+    movq %R12, %RSI
+    movq 48(%RSP), %RDX
+    movq %RBX, %RCX
+    movq %RBX, %R8
+    movq -16(%RBP), %R9
+    call printSum
+    addq $16, %RSP
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 8(%RSP)
+    pushq 40(%RSP)
+    movq %R15, %RDI
+    movq 32(%RSP), %RSI
+    movq %R15, %RDX
+    movq 48(%RSP), %RCX
     movq 16(%RSP), %R8
     movq %RBX, %R9
     call printSum
     addq $16, %RSP
-    pushq 24(%RSP)
-    pushq %R12
-    movq %R15, %RDI
-    movq %R14, %RSI
-    movq 48(%RSP), %RDX
-    movq 72(%RSP), %RCX
-    movq 48(%RSP), %R8
-    movq 48(%RSP), %R9
-    call printSum
-    addq $16, %RSP
-    pushq %R14
-    pushq 8(%RSP)
-    movq 16(%RSP), %RDI
-    movq 16(%RSP), %RSI
-    movq 56(%RSP), %RDX
-    movq %RBX, %RCX
-    movq %RBX, %R8
-    movq %R12, %R9
-    call printSum
-    addq $16, %RSP
-    pushq 16(%RSP)
-    pushq 48(%RSP)
-    movq %R15, %RDI
-    movq 24(%RSP), %RSI
-    movq %R15, %RDX
-    movq 56(%RSP), %RCX
-    movq 72(%RSP), %R8
-    movq %RBX, %R9
-    call printSum
-    addq $16, %RSP
-    pushq 48(%RSP)
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
     pushq 40(%RSP)
+    pushq 32(%RSP)
     movq %R13, %RDI
     movq %R13, %RSI
-    movq 72(%RSP), %RDX
+    movq 16(%RSP), %RDX
     movq %RBX, %RCX
-    movq 64(%RSP), %R8
-    movq 32(%RSP), %R9
-    call printSum
-    addq $16, %RSP
-    pushq %R12
-    pushq 24(%RSP)
-    movq 24(%RSP), %RDI
-    movq %R12, %RSI
-    movq 56(%RSP), %RDX
-    movq %R15, %RCX
     movq 56(%RSP), %R8
-    movq %R12, %R9
+    movq 24(%RSP), %R9
     call printSum
     addq $16, %RSP
-    pushq 32(%RSP)
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq -16(%RBP)
+    pushq 16(%RSP)
+    movq 32(%RSP), %RDI
+    movq -16(%RBP), %RSI
+    movq 48(%RSP), %RDX
+    movq %R15, %RCX
+    movq 48(%RSP), %R8
+    movq -16(%RBP), %R9
+    call printSum
+    addq $16, %RSP
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 24(%RSP)
     pushq %R14
     movq %R13, %RDI
-    movq 32(%RSP), %RSI
-    movq 16(%RSP), %RDX
-    movq 72(%RSP), %RCX
-    movq 72(%RSP), %R8
+    movq 24(%RSP), %RSI
+    movq %R12, %RDX
+    movq 16(%RSP), %RCX
+    movq 16(%RSP), %R8
     movq %R14, %R9
     call printSum
     addq $16, %RSP
-    pushq 48(%RSP)
-    pushq 24(%RSP)
-    movq %R13, %RDI
-    movq %R12, %RSI
-    movq 72(%RSP), %RDX
-    movq %R13, %RCX
-    movq 48(%RSP), %R8
-    movq 32(%RSP), %R9
-    call printSum
-    addq $16, %RSP
-    pushq 56(%RSP)
-    pushq %R12
-    movq %R15, %RDI
-    movq 72(%RSP), %RSI
-    movq %RBX, %RDX
-    movq 40(%RSP), %RCX
-    movq %R15, %R8
-    movq %R15, %R9
-    call printSum
-    addq $16, %RSP
-    pushq 48(%RSP)
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 40(%RSP)
     pushq 16(%RSP)
-    movq 56(%RSP), %RDI
-    movq 72(%RSP), %RSI
-    movq 24(%RSP), %RDX
-    movq 48(%RSP), %RCX
-    movq %R14, %R8
-    movq 64(%RSP), %R9
-    call printSum
-    addq $16, %RSP
-    pushq 40(%RSP)
-    pushq 48(%RSP)
-    movq 56(%RSP), %RDI
-    movq %RBX, %RSI
-    movq 64(%RSP), %RDX
-    movq 72(%RSP), %RCX
-    movq 72(%RSP), %R8
-    movq 72(%RSP), %R9
-    call printSum
-    addq $16, %RSP
-    pushq 48(%RSP)
-    pushq %RBX
-    movq 64(%RSP), %RDI
-    movq %R13, %RSI
-    movq 72(%RSP), %RDX
-    movq 16(%RSP), %RCX
-    movq 72(%RSP), %R8
-    movq %RBX, %R9
-    call printSum
-    addq $16, %RSP
-    pushq 56(%RSP)
-    pushq 64(%RSP)
-    movq %RBX, %RDI
-    movq %R12, %RSI
-    movq %R12, %RDX
-    movq 72(%RSP), %RCX
-    movq 16(%RSP), %R8
-    movq 64(%RSP), %R9
-    call printSum
-    addq $16, %RSP
-    pushq 8(%RSP)
-    pushq 40(%RSP)
-    movq 64(%RSP), %RDI
-    movq 72(%RSP), %RSI
-    movq 40(%RSP), %RDX
-    movq 24(%RSP), %RCX
-    movq 40(%RSP), %R8
-    movq 72(%RSP), %R9
-    call printSum
-    addq $16, %RSP
-    pushq 48(%RSP)
-    pushq 24(%RSP)
-    movq %R12, %RDI
-    movq %R14, %RSI
-    movq 48(%RSP), %RDX
-    movq 48(%RSP), %RCX
-    movq 48(%RSP), %R8
-    movq 56(%RSP), %R9
-    call printSum
-    addq $16, %RSP
-    pushq 8(%RSP)
-    pushq %RBX
-    movq 32(%RSP), %RDI
-    movq 16(%RSP), %RSI
-    movq 72(%RSP), %RDX
-    movq 24(%RSP), %RCX
+    movq %R13, %RDI
+    movq -16(%RBP), %RSI
+    movq 16(%RSP), %RDX
+    movq %R13, %RCX
     movq 40(%RSP), %R8
     movq 24(%RSP), %R9
     call printSum
     addq $16, %RSP
-    pushq 8(%RSP)
-    pushq 48(%RSP)
-    movq 40(%RSP), %RDI
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 0(%RSP)
+    pushq -16(%RBP)
+    movq %R15, %RDI
     movq 16(%RSP), %RSI
+    movq %RBX, %RDX
+    movq -8(%RBP), %RCX
+    movq %R15, %R8
+    movq %R15, %R9
+    call printSum
+    addq $16, %RSP
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 40(%RSP)
+    pushq 24(%RSP)
+    movq 48(%RSP), %RDI
+    movq 16(%RSP), %RSI
+    movq 32(%RSP), %RDX
+    movq 40(%RSP), %RCX
+    movq %R14, %R8
+    movq 56(%RSP), %R9
+    call printSum
+    addq $16, %RSP
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 32(%RSP)
+    pushq 40(%RSP)
+    movq 48(%RSP), %RDI
+    movq %RBX, %RSI
+    movq 56(%RSP), %RDX
+    movq 16(%RSP), %RCX
+    movq 16(%RSP), %R8
+    movq 16(%RSP), %R9
+    call printSum
+    addq $16, %RSP
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 40(%RSP)
+    pushq %RBX
+    movq 56(%RSP), %RDI
+    movq %R13, %RSI
     movq 16(%RSP), %RDX
-    movq %R14, %RCX
-    movq 48(%RSP), %R8
-    movq %R12, %R9
+    movq %R12, %RCX
+    movq 16(%RSP), %R8
+    movq %RBX, %R9
     call printSum
     addq $16, %RSP
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 0(%RSP)
     pushq 8(%RSP)
-    pushq 8(%RSP)
-    movq %R13, %RDI
-    movq %R15, %RSI
-    movq %R12, %RDX
-    movq %R13, %RCX
-    movq %R13, %R8
-    movq %R12, %R9
+    movq %RBX, %RDI
+    movq -16(%RBP), %RSI
+    movq -16(%RBP), %RDX
+    movq 16(%RSP), %RCX
+    movq %R12, %R8
+    movq 56(%RSP), %R9
     call printSum
     addq $16, %RSP
-    pushq %R14
-    pushq 48(%RSP)
-    movq 64(%RSP), %RDI
-    movq 40(%RSP), %RSI
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 16(%RSP)
+    pushq 32(%RSP)
+    movq 56(%RSP), %RDI
+    movq 16(%RSP), %RSI
+    movq -8(%RBP), %RDX
+    movq 32(%RSP), %RCX
+    movq -8(%RBP), %R8
+    movq 16(%RSP), %R9
+    call printSum
+    addq $16, %RSP
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 40(%RSP)
+    pushq 16(%RSP)
+    movq -16(%RBP), %RDI
+    movq %R14, %RSI
     movq 40(%RSP), %RDX
-    movq 64(%RSP), %RCX
-    movq 72(%RSP), %R8
+    movq 40(%RSP), %RCX
+    movq 40(%RSP), %R8
     movq 48(%RSP), %R9
     call printSum
     addq $16, %RSP
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R9
+    pushq %R11
+    pushq 16(%RSP)
+    pushq %RBX
+    movq 24(%RSP), %RDI
+    movq %R12, %RSI
+    movq 16(%RSP), %RDX
+    movq 32(%RSP), %RCX
+    movq -8(%RBP), %R8
+    movq 32(%RSP), %R9
+    call printSum
+    addq $16, %RSP
+    popq %R11
+    popq %R9
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R11
+    subq $8, %RSP
+    pushq 16(%RSP)
+    pushq 40(%RSP)
+    movq -8(%RBP), %RDI
+    movq %R12, %RSI
+    movq %R12, %RDX
+    movq %R14, %RCX
+    movq 40(%RSP), %R8
+    movq -16(%RBP), %R9
+    call printSum
+    addq $16, %RSP
+    addq $8, %RSP
+    popq %R11
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R8
+    pushq %R11
+    subq $8, %RSP
+    pushq 16(%RSP)
+    pushq %R12
+    movq %R13, %RDI
+    movq %R15, %RSI
+    movq -16(%RBP), %RDX
+    movq %R13, %RCX
+    movq %R13, %R8
+    movq -16(%RBP), %R9
+    call printSum
+    addq $16, %RSP
+    addq $8, %RSP
+    popq %R11
+    popq %R8
+    popq %RCX
+    popq %RSI
+    popq %RDI
+    pushq %RDI
+    pushq %RSI
+    pushq %RCX
+    pushq %R11
+    pushq %R14
+    pushq 24(%RSP)
+    movq 40(%RSP), %RDI
+    movq -8(%RBP), %RSI
+    movq -8(%RBP), %RDX
+    movq 40(%RSP), %RCX
+    movq 16(%RSP), %R8
+    movq 24(%RSP), %R9
+    call printSum
+    addq $16, %RSP
+    popq %R11
+    popq %RCX
+    popq %RSI
+    popq %RDI
     movq $0, %RAX
     popq %R15
     popq %R14

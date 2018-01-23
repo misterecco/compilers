@@ -5,11 +5,10 @@ int main() {
 
     while (i < 10) {
         n = n * i;
-        printString("--------------");
-        printInt(i);
-        printInt(n);
         i++;
     }
+
+    printInt(n);
 
     return 0;
 }

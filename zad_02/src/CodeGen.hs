@@ -70,13 +70,7 @@ genInstrs lbl (i, lm) = case i of
                     addInstrs $ genMovOrLea dstMem argMem
                     addInstr $ Imul dstMem (intLiteral (-1))
     IRCall dst func args -> do
-        let (regArgs, stackArgs) = splitAt 6 args
-        preservedRegs <- preserveRegisters
-        pushRestArgs lm stackArgs
-        prepareRegisterArgs regArgs lm
-        callFunc func
-        popRestArgs stackArgs
-        restoreRegisters preservedRegs
+        callFunc func lm args
         if dst == NoRet || dst `M.notMember` lm
             then return ()
             else do
@@ -144,23 +138,18 @@ genInstrs lbl (i, lm) = case i of
             addVarMapping var mem
 
 
-callFunc :: Label -> CGMonad ()
-callFunc lbl = do
-    CGMS {currentStackPos = csp} <- getCurrentMs
-    if csp `mod` 16 == 0 
-        then addInstr $ Call lbl
-    else addInstrs [ Sub (Reg RSP) (intLiteral 8)
-                   , Call lbl
-                   , Add (Reg RSP) (intLiteral 8) ]
-
-
-callStringFunction :: Label -> LiveMap -> IRAddr -> IRAddr -> CGMonad ()
-callStringFunction lbl lm larg rarg = do
+callFunc :: Label -> LiveMap -> [IRAddr] ->CGMonad ()
+callFunc lbl lm args = do
+    let (regArgs, stackArgs) = splitAt 6 args
     preservedRegs <- preserveRegisters
-    prepareRegisterArgs [larg, rarg] lm
-    callFunc lbl
+    shouldAlign <- pushRestArgs lm stackArgs
+    prepareRegisterArgs regArgs lm
+    addInstr $ Call lbl
+    popRestArgs stackArgs shouldAlign
     restoreRegisters preservedRegs
 
+callStringFunction :: Label -> LiveMap -> IRAddr -> IRAddr -> CGMonad ()
+callStringFunction lbl lm larg rarg = callFunc lbl lm [larg, rarg]
 
 pushNonvolatileRegs :: CGMonad [AsmInstr]
 pushNonvolatileRegs = do
@@ -313,11 +302,26 @@ prepareRegisterArgs args lm = mapM_ (\(arg, reg) -> do
     argMem <- getMemoryLoc arg lm
     addInstrs $ genMovOrLea (Reg reg) argMem) (zip args paramRegisters)
 
-pushRestArgs :: LiveMap -> [IRAddr] -> CGMonad ()
-pushRestArgs lm = (mapM_ (pushVariable lm)) . reverse
+pushRestArgs :: LiveMap -> [IRAddr] -> CGMonad Bool
+pushRestArgs lm args = do
+    let n = toInteger $ (length args) * 8
+    CGMS {currentStackPos = csp} <- getCurrentMs
+    if (n + csp) `mod` 16 == 0 
+        then do
+            ((mapM_ (pushVariable lm)) . reverse) args
+            return False
+        else do
+            _ <- pushStackLoc
+            addInstr $ Sub (Reg RSP) (intLiteral 8)
+            ((mapM_ (pushVariable lm)) . reverse) args
+            return True
 
-popRestArgs :: [IRAddr] -> CGMonad ()
-popRestArgs = popVariables
+popRestArgs :: [IRAddr] -> Bool -> CGMonad ()
+popRestArgs args shouldAlign = do
+    popVariables args
+    when shouldAlign $ do
+        popStackLoc
+        addInstr $ Add (Reg RSP) (intLiteral 8)
 
 getActiveVolatileRegs :: CGMonad [CGReg]
 getActiveVolatileRegs = do
